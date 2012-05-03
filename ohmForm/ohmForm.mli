@@ -35,7 +35,7 @@ val constant : 'result -> ('ctx,'seed,'result) template
 (** Specify the HTML context for this object. *)
 val wrap : 
      selector
-  -> ('ctx,Ohm.Html.writer) Run.t
+  -> ('ctx,Ohm.Html.writer) Ohm.Run.t
   -> ('ctx,'seed,'result) template
   -> ('ctx,'seed,'result) template
 
@@ -97,10 +97,10 @@ val select :
  ?error_html:(selector * ('ctx,Ohm.Html.writer) Ohm.Run.t) ->
  ?label:(selector * string) ->
  ?error:selector ->
-  format:'data Fmt.fmt ->
+  format:'data Ohm.Fmt.fmt ->
   source:[`Static of ('data * string * ('ctx,Ohm.Html.writer) Ohm.Run.t option) list 
 	 |`Dynamic of string
-	 |`Both of ('data * string * ('ctx,Ohm.Html.writer) Ohm.Run.t optin) list * string] ->
+	 |`Both of ('data * string * ('ctx,Ohm.Html.writer) Ohm.Run.t option) list * string] ->
   ('seed -> ('ctx,'data option) Ohm.Run.t) ->
   (field -> 'data option  -> ('ctx,('result,field * string) BatStd.result) Ohm.Run.t) ->
   ('ctx,'seed,'result) template
@@ -133,7 +133,7 @@ val choice :
  ?error_html:(selector * ('ctx,Ohm.Html.writer) Ohm.Run.t) ->
  ?label:(selector * string) ->
  ?error:selector ->
-  format:'data Fmt.fmt ->
+  format:'data Ohm.Fmt.fmt ->
   source:('data * ('ctx,Ohm.Html.writer) Ohm.Run.t) list ->
   multiple:bool ->
   ('seed -> ('ctx,'data list) Ohm.Run.t) ->
@@ -187,15 +187,15 @@ val option :
     This merely reads out the "term" GET parameter.
 *)
 val select_search_param : 
-  'data Fmt.fmt ->
-  < post : string -> string option ; .. > -> 
+  'data Ohm.Fmt.fmt ->
+  < get : string -> string option ; .. > -> 
   [ `Complete of string | `Get of 'data ]
 
 (** Return a formatted list of search results for a JSON selector. *)
 val select_return_list : 
-  'data Fmt.fmt -> 
+  'data Ohm.Fmt.fmt -> 
   ('data * string * ('ctx,Ohm.Html.writer) Ohm.Run.t option) list ->
-  (string * Json_type.t) list
+  ('ctx, (string * Json_type.t) list) Ohm.Run.t
 
 (** A field concatenator.
     
@@ -265,7 +265,6 @@ type ('ctx,'result) form
 (** Creating a specific form instance. *)
 val create : 
      template:('ctx,'seed,'result) template
-  -> i18n:I18n.t
   -> source:'seed source
   -> ('ctx,'result) form
 

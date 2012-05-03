@@ -10,7 +10,7 @@ type selector = string
 let here = ""
 
 type ('ctx,'seed,'result) template = {
-  template : Json_type.t ;
+  template : ('ctx,Json_type.t) Run.t ;
   init     : 'seed -> ('ctx,Json_type.t) Run.t ;
   parse    : Json_type.t -> field -> ('ctx,('result,(field * string) list) BatStd.result) Run.t ;  
 }
@@ -34,7 +34,7 @@ let result_map f t =
 
 let constant value = 
   {
-    template = (fun _ -> Json_type.Null) ;
+    template = return Json_type.Null ;
     init     = (fun _ -> return Json_type.Null) ;
     parse    = (fun _ _ -> return (Ok value)) ;
   }
@@ -42,41 +42,70 @@ let constant value =
 let wrap selector renderer t = 
   {
     t with 
-      template = (Json_type.Object [
-	"t", Json_type.String "html" ;
-	"s", Json_type.String selector ;
-	"i", t.template ;
-	"h", Html.to_json renderer ;
-      ])
+      template = let! renderer = ohm renderer in
+		 let! inner    = ohm t.template in 
+		 return (Json_type.Object [
+		   "t", Json_type.String "html" ;
+		   "s", Json_type.String selector ;
+		   "i", inner ; 
+		   "h", Html.to_json renderer ;
+		 ])
   }
   
 let string ~field ?label_html ?field_html ?error_html ?label ?error seed result = 
   {
-    template = Json_type.Object (List.concat [
-      
-      [ "t", Json_type.String "string" ;
-	"s", Json_type.String field ] ;
-      
-      ( match label_html with None -> [] | Some (sel,html) -> 
-	[ "lh", Html.to_json html ;
-	  "lhs", Json_type.String sel ] ) ;
-      
-      ( match field_html with None -> [] | Some (sel,html) ->
-	[ "fh", Html.to_json html ;
-	  "fhs", Json_type.String sel ] );
-      
-      ( match error_html with None -> [] | Some (sel,html) ->
-	[ "eh", Html.to_json html) ;
-	  "ehs", Json_type.String sel ] );
-      
-      ( match label with None -> [] | Some (sel,text) ->
-	[ "ls", Json_type.String sel ;
-	  "lt", Json_type.String text ] ) ;
-      
-      ( match error with None -> [] | Some sel ->
-	[ "es", Json_type.String sel ] ) ;
-      
-    ]) ;
+    template = begin
+
+      let! for_label_html = ohm begin
+	match label_html with 
+	  | None            -> return [] 
+	  | Some (sel,html) -> let! html = ohm html in 
+			       return [ "lh" , Html.to_json html ;
+					"lhs", Json_type.String sel ]
+      end in 
+
+      let! for_field_html = ohm begin 
+	match field_html with 
+	  | None            -> return [] 
+	  | Some (sel,html) -> let! html = ohm html in 
+			       return [ "fh" , Html.to_json html ;
+					"fhs", Json_type.String sel ]
+      end in 
+
+      let! for_error_html = ohm begin
+	match error_html with 
+	  | None            -> return [] 
+	  | Some (sel,html) -> let! html = ohm html in 
+			       return [ "eh" , Html.to_json html ;
+					"ehs", Json_type.String sel ]
+      end in 
+
+      let for_label = 
+	match label with 
+	  | None            -> [] 
+	  | Some (sel,text) -> [ "ls", Json_type.String sel ;
+				 "lt", Json_type.String text ]
+      in 
+
+      let for_error = 
+	match error with 
+	  | None     -> []
+	  | Some sel -> [ "es", Json_type.String sel ] 
+      in
+
+      return $ Json_type.Object (List.concat [
+	
+	[ "t", Json_type.String "string" ;
+	  "s", Json_type.String field ] ;
+	
+	for_label_html ; 
+	for_field_html ;
+	for_error_html ;
+	for_label ;
+	for_error 
+      ]) 
+
+    end ;
 
     init = (fun source -> 
       let! string = ohm $ seed source in
@@ -90,27 +119,35 @@ let string ~field ?label_html ?field_html ?error_html ?label ?error seed result 
   }
 
 let json_of_select_list fmt list = 
-  Json_type.Build.list (fun (value, label, html_opt) ->
-    Json_type.Build.objekt ([
+  let! list = ohm $ Run.list_map (fun (value, label, html_opt) ->
+    
+    let! html = ohm begin match html_opt with
+      | None      -> return Json_type.Null
+      | Some html -> let! html = ohm html in 
+		     return $ Json_type.String (Html.to_html_string html)
+    end in
+
+    return $ Json_type.Build.objekt ([
       "internal", fmt.Fmt.to_json value ;
-      "value", Json_type.String label ;
-      "html", (match html_opt with
-	| None      -> Json_type.Null
-	| Some html -> Json_type.String (Html.to_html_string html))
-      )
+      "value",    Json_type.String label ;
+      "html",     html 
     ])
-  ) list
+
+  ) list in
+
+  return $ Json_type.Array list
 
 let select_return_list fmt list = 
-  [ "list", json_of_select_list fmt list ]
+  let! list = ohm $ json_of_select_list fmt list in
+  return [ "list", list ]
 
 let select_search_param fmt request = 
-  match request # post "complete" with 
+  match request # get "complete" with 
     | Some term -> `Complete term
     | None -> 
       let get = 
 	try 
-	  match request # post "get" with 
+	  match request # get "get" with 
 	    | Some str -> let json = Json_io.json_of_string ~recursive:true str in
 			  fmt.Fmt.of_json json
 	    | None -> None
@@ -126,38 +163,70 @@ let select
     ~format ~source
     seed result = 
   {
-    template = Json_type.Object (List.concat [
-      
-      [ "t", Json_type.String "select" ;
-	"s", Json_type.String field ] ;
+    template = begin 
 
-      ( match source with 
-	| `Static list -> [ "ss", json_of_select_list format list ] ;
-	| `Dynamic url -> [ "ds", Json_type.String url ] 
-	| `Both (list,url) ->
-	  [ "ss", json_of_select_list format list ;
-	    "ds", Json_type.String url ] ) ;
+      let! for_source = ohm begin 
+	match source with 
+	  | `Static list     -> let! list = ohm $ json_of_select_list format list in
+				return [ "ss", list ] ;
+	  | `Dynamic url     -> return [ "ds", Json_type.String url ] 
+	  | `Both (list,url) -> let! list = ohm $ json_of_select_list format list in
+				return [ "ss", list ;
+					 "ds", Json_type.String url ]
+      end in 
+
+      let! for_label_html = ohm begin
+	match label_html with 
+	  | None            -> return [] 
+	  | Some (sel,html) -> let! html = ohm html in 
+			       return [ "lh" , Html.to_json html ;
+					"lhs", Json_type.String sel ]
+      end in 
+
+      let! for_field_html = ohm begin 
+	match field_html with 
+	  | None            -> return [] 
+	  | Some (sel,html) -> let! html = ohm html in 
+			       return [ "fh" , Html.to_json html ;
+					"fhs", Json_type.String sel ]
+      end in 
+
+      let! for_error_html = ohm begin
+	match error_html with 
+	  | None            -> return [] 
+	  | Some (sel,html) -> let! html = ohm html in 
+			       return [ "eh" , Html.to_json html ;
+					"ehs", Json_type.String sel ]
+      end in 
+
+      let for_label = 
+	match label with 
+	  | None            -> [] 
+	  | Some (sel,text) -> [ "ls", Json_type.String sel ;
+				 "lt", Json_type.String text ]
+      in 
+
+      let for_error = 
+	match error with 
+	  | None     -> []
+	  | Some sel -> [ "es", Json_type.String sel ] 
+      in
+
+      return $ Json_type.Object (List.concat [
       
-      ( match label_html with None -> [] | Some (sel,html) -> 
-	[ "lh", Html.to_json html ; 
-	  "lhs", Json_type.String sel ] ) ;
-      
-      ( match field_html with None -> [] | Some (sel,html) ->
-	[ "fh", Html.to_json html ; 
-	  "fhs", Json_type.String sel ] );
-      
-      ( match error_html with None -> [] | Some (sel,html) ->
-	[ "eh", Html.to_json html ;
-	  "ehs", Json_type.String sel ] );
-      
-      ( match label with None -> [] | Some (sel,text) ->
-	[ "ls", Json_type.String sel ;
-	  "lt", Json_type.String text ] ) ;
-      
-      ( match error with None -> [] | Some sel ->
-	[ "es", Json_type.String sel ] ) ;
-      
-    ])) ;
+	[ "t", Json_type.String "select" ;
+	  "s", Json_type.String field ] ;
+	
+	for_source ;
+	for_label_html ; 
+	for_field_html ;
+	for_error_html ;
+	for_label ;
+	for_error            
+
+      ]) ;
+
+    end ;
 
     init = (fun source -> 
       let! init = ohm $ seed source in 
@@ -174,45 +243,79 @@ let select
   }
 
 let json_of_choice_list fmt list = 
-  Json_type.Build.list (fun (value, html) ->
-    Json_type.Build.objekt ([
+
+  let! list = ohm $ Run.list_map (fun (value, html) ->
+    let! html = ohm html in
+    return $ Json_type.Build.objekt ([
       "internal", fmt.Fmt.to_json value ;
-      "html",     Json_type.String (Html.to_html_string html))
+      "html",     Json_type.String (Html.to_html_string html)
     ])
-  ) list
+  ) list in
+
+  return $ Json_type.Array list
 
 let choice
     ~field ?label_html ?field_html ?error_html ?label ?error
     ~format ~source ~multiple
     seed result = 
   {
-    template = Json_type.Object (List.concat [
-      
-      [ "t",   Json_type.String "choice" ;
-	"s",   Json_type.String field ;
-	"src", json_of_choice_list format source ;
-        "m",   Json_type.Bool multiple ] ;
+    template = begin
 
-      ( match label_html with None -> [] | Some (sel,html) -> 
-	[ "lh", Html.to_json html ; 
-	  "lhs", Json_type.String sel ] ) ;
-      
-      ( match field_html with None -> [] | Some (sel,html) ->
-	[ "fh", Html.to_json html ; 
-	  "fhs", Json_type.String sel ] );
-      
-      ( match error_html with None -> [] | Some (sel,html) ->
-	[ "eh", Html.to_json Html ; 
-	  "ehs", Json_type.String sel ] );
-      
-      ( match label with None -> [] | Some (sel,text) ->
-	[ "ls", Json_type.String sel ;
-	  "lt", Json_type.String text ] ) ;
-      
-      ( match error with None -> [] | Some sel ->
-	[ "es", Json_type.String sel ] ) ;
-      
-    ])) ;
+      let! list = ohm $json_of_choice_list format source in
+
+      let! for_label_html = ohm begin
+	match label_html with 
+	  | None            -> return [] 
+	  | Some (sel,html) -> let! html = ohm html in 
+			       return [ "lh" , Html.to_json html ;
+					"lhs", Json_type.String sel ]
+      end in 
+
+      let! for_field_html = ohm begin 
+	match field_html with 
+	  | None            -> return [] 
+	  | Some (sel,html) -> let! html = ohm html in 
+			       return [ "fh" , Html.to_json html ;
+					"fhs", Json_type.String sel ]
+      end in 
+
+      let! for_error_html = ohm begin
+	match error_html with 
+	  | None            -> return [] 
+	  | Some (sel,html) -> let! html = ohm html in 
+			       return [ "eh" , Html.to_json html ;
+					"ehs", Json_type.String sel ]
+      end in 
+
+      let for_label = 
+	match label with 
+	  | None            -> [] 
+	  | Some (sel,text) -> [ "ls", Json_type.String sel ;
+				 "lt", Json_type.String text ]
+      in 
+
+      let for_error = 
+	match error with 
+	  | None     -> []
+	  | Some sel -> [ "es", Json_type.String sel ] 
+      in
+
+      return $ Json_type.Object (List.concat [
+	
+	[ "t",   Json_type.String "choice" ;
+	  "s",   Json_type.String field ;
+	  "src", list ;
+          "m",   Json_type.Bool multiple ] ;
+
+	for_label_html ; 
+	for_field_html ;
+	for_error_html ;
+	for_label ;
+	for_error            
+	
+      ]) ;
+
+    end ;
 
     init = (fun source -> 
       let! list = ohm (seed source) in
@@ -232,15 +335,16 @@ let choice
 
 let array ~list ~add ~item ~remove inner = 
   {
-    template = Json_type.Object 
-      [ "t", Json_type.String "array" ;
-	"ls", Json_type.String list ;
-	"rs", Json_type.String remove ;
-	"as", Json_type.String add ;
-	"ih", Html.to_json item ; 
-	"i",  inner.template  
-      ]
-    ) ;
+    template = let! item  = ohm item in
+	       let! inner = ohm inner.template in
+	       return $ Json_type.Object 
+		 [ "t", Json_type.String "array" ;
+		   "ls", Json_type.String list ;
+		   "rs", Json_type.String remove ;
+		   "as", Json_type.String add ;
+		   "ih", Html.to_json item ; 
+		   "i",  inner
+		 ] ;
 
     init = (fun seed -> 
       let! list = ohm $ Run.list_map inner.init seed in
@@ -249,33 +353,34 @@ let array ~list ~add ~item ~remove inner =
 
     parse = (fun json field ->
       let  input  = match json with Json_type.Array list -> list | _ -> [] in
-      let  input  = BatList.mapi (fun i json -> (i :: field),json) input in
-      let! result = ohm $ Run.list_map (fun (field,json) -> inner.parse field json) in
-      if List.exists (function Bad _ -> true | Ok _ -> false) results then
+      let  input  = BatList.mapi (fun i json -> json,(i :: field)) input in
+      let! result = ohm $ Run.list_map (fun (field,json) -> inner.parse field json) input in
+      if List.exists (function Bad _ -> true | Ok _ -> false) result then
 	return $ Bad (List.concat (BatList.filter_map (function
 	  | Bad x -> Some x
-	  | Ok  _ -> None) results
+	  | Ok  _ -> None) result
 	))
       else
 	return $ Ok (BatList.filter_map (function
 	  | Ok  x -> Some x
-	  | Bad _ -> None) results
+	  | Bad _ -> None) result
 	)
     ) ;
   }     
 
 let option ~list ~add ~item ~remove inner = 
   {
-    template = Json_type.Object 
-      [ "t",   Json_type.String "array" ;
-	"ls",  Json_type.String list ;
-	"rs",  Json_type.String remove ;
-	"as",  Json_type.String add ;
-	"ih",  Html.to_json item ;
-	"max", Json_type.Int 1 ;
-	"i",   inner.template 
-      ]
-    ) ;
+    template = let! item = ohm item in
+	       let! inner = ohm inner.template in
+	       return $ Json_type.Object 
+		 [ "t",   Json_type.String "array" ;
+		   "ls",  Json_type.String list ;
+		   "rs",  Json_type.String remove ;
+		   "as",  Json_type.String add ;
+		   "ih",  Html.to_json item ;
+		   "max", Json_type.Int 1 ;
+		   "i",   inner
+		 ] ;
 
     init = (fun seed -> 
       let! list = ohm (match seed with 
@@ -283,7 +388,7 @@ let option ~list ~add ~item ~remove inner =
 	| Some value -> let! inner = ohm (inner.init value) in
 			return [inner]) in
       return (Json_type.Array list)
-    )) ;
+    ) ;
 
     parse = (fun json field ->
       let input = match json with Json_type.Array (h :: _) -> Some h | _ -> None in
@@ -297,7 +402,9 @@ let option ~list ~add ~item ~remove inner =
     
 let append combine b a = 
   {
-    template = Json_type.Array [a.template ; b.template] ;
+    template = let! a = ohm a.template in
+	       let! b = ohm b.template in
+	       return $ Json_type.Array [ a ; b ] ;
     
     init = (fun seed -> 
       let! a = ohm (a.init seed) in
@@ -350,9 +457,9 @@ let from_post post =
   with _ -> empty
 
 type ('ctx,'result) form = {
-  result : ('ctx,('result, (field * I18n.text) list) BatStd.result) Run.t ;
+  result : ('ctx,('result, (field * string) list) BatStd.result) Run.t ;
   errors : (field * string) list ;
-  config : Json_type.t ;
+  config : ('ctx,Json_type.t) Run.t ;
   data   : ('ctx,Json_type.t) Run.t ;
   params : Json_type.t
 }
@@ -360,14 +467,15 @@ type ('ctx,'result) form = {
 let create ~template ~source = 
   
   let data, params = match source with 
-    | `Seed (seed,params) -> Run.keep (template.init seed), params
+    | `Seed (seed,params) -> Run.memo (template.init seed), params
     | `Json (json,params) -> return json, params
   in
   
   {
-    result = Run.keep (template.parse data []) ;
+    result = Run.memo (let! data = ohm data in 
+		       template.parse data []) ;
     errors = [] ;
-    config = template.template ;
+    config = Run.memo template.template ;
     data   ;
     params ;
   }
@@ -375,7 +483,8 @@ let create ~template ~source =
 let params form = form.params
 
 let render form url =
-  let! data = ohm form.data in
+  let! data   = ohm form.data in
+  let! config = ohm form.config in 
   let id = Id.gen () in 
   let html = Html.concat [    
     Html.str "<form action=\"" ;
@@ -385,7 +494,7 @@ let render form url =
     Html.str "\" value=\"" ;
     Html.esc (Json_io.string_of_json ~recursive:true ~compact:true data) ;
     Html.str "\"/></form>" ;
-    Html.run (JsCode.make ~name:"joy" ~args:[ Id.to_json id ; form.config ; form.params ])
+    Html.run (JsCode.make ~name:"joy" ~args:[ Id.to_json id ; config ; form.params ])
   ] in
   return html
 
@@ -395,7 +504,7 @@ let response form =
     "data", data ;
     "errors", Json_type.Build.list (fun (field,text) -> Json_type.Array [
       Json_type.Build.list Json_type.Build.int field ;
-      Json_type.String (I18n.translate form.i18n text)
+      Json_type.String text
     ]) form.errors
   ] 
 
@@ -420,7 +529,7 @@ module Skin = struct
 	 ~error:(".joy-field-error label")
 	 seed parse)
 
-  let password ~label seed parse = 
+  let password ~label parse = 
     wrap ".joy-fields"
       (Asset_OhmForm_Input.render (object method kind = "password" end))
       (string
