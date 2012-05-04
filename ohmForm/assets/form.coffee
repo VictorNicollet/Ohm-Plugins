@@ -435,7 +435,7 @@ window.joy = (($) ->
                                 success: (res) ->
                                         root.set res.data if res.data
                                         if res.errors
-                                                root.clear
+                                                do root.clear
                                                 root.error error[0], error[1] for error in res.errors
                                         execute ctx, $form, res.code if res.code
 
