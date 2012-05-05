@@ -317,7 +317,8 @@ let stream (source : Lexing.lexbuf -> initial) lexbuf =
 
       let kept, cut = BatList.split_at (List.length current - rem) current in       
 
-      memory := (List.rev_map do_close cut @ List.map do_open add) ;          
+      let mem = List.rev_map do_close cut @ List.map do_open add in
+      memory := if not !had_pre && mem = [] then [`STR " "] else mem ;
  
       stack := `Weak (kept @ BatList.filter_map do_clean add) ;
 
@@ -576,7 +577,7 @@ let stream (source : Lexing.lexbuf -> initial) lexbuf =
 	    | `INLINE_END      s
 	    | `QUOTE           s
 	    | `STR             s -> `STR s
-	    | `ENT             s -> `STR ("&amp;"  ^BatString.lchop s)
+	    | `ENT             s -> `STR ("&amp;" ^ BatString.lchop s)
 	    | `HTML            s -> `STR "&lt;"
 	    | `AMP             s -> `STR "amp;" 
 	    | `ESC             q -> `STR (String.make 1 q.[1]) 
@@ -935,10 +936,10 @@ let parse lexbuf =
       | `I_CLOSE
       | `EOF 
       ) as next    -> [], next
-    | next         -> let inline, n = inline next in
+    | next         -> let inline, n = inline next in		      
 		      let t = if raw then `R inline else `P inline in
 		      let l, n = root raw n in
-		      t :: l, n
+		      if inline <> [] then t :: l, n else l, n
   and pre = function
     | `PRE_CLOSE -> "", (get ()) 
     | `STR s     -> let t, n = pre (get ()) in
@@ -1026,7 +1027,9 @@ let parse lexbuf =
 
 let to_html trees = 
   let rec inline = function 
-    | `CODE  s  -> Html.str s 
+    | `CODE  s  -> Html.concat [ Html.str "<code>" ;
+				 Html.str s ;
+				 Html.str "</code>" ]
     | `SUB   l  -> Html.concat (List.map inline l) 
     | `B     l  -> Html.concat [ Html.str "<strong>" ;
 				 Html.concat (List.map inline l) ;
@@ -1063,15 +1066,15 @@ let to_html trees =
 			    Html.str "</p>" ] 
     | `UL l -> Html.concat [ Html.str "<ul>" ;
 			     Html.concat (List.map
-			       (fun l -> Html.concat [ Html.str "<p>" ;
+			       (fun l -> Html.concat [ Html.str "<li>" ;
 						       Html.concat (List.map tree l) ;
-						       Html.str "</p>" ]) l) ;
+						       Html.str "</li>" ]) l) ;
 			     Html.str "</ul>" ]      
     | `OL l -> Html.concat [ Html.str "<ol>" ;
 			     Html.concat (List.map
-			       (fun l -> Html.concat [ Html.str "<p>" ;
+			       (fun l -> Html.concat [ Html.str "<li>" ;
 						       Html.concat (List.map tree l) ;
-						       Html.str "</p>" ]) l) ;
+						       Html.str "</li>" ]) l) ;
 			     Html.str "</ol>" ]	
     | `PRE   p -> Html.concat [ Html.str "<pre><code>" ;
 				Html.str p ;
