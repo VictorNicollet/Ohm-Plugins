@@ -314,6 +314,13 @@ module Skin : sig
     -> (field -> string -> ('c,('r,field * string) BatStd.result) Ohm.Run.t)
     -> ('c,'s,'r) template
 
+  (** A [textarea] field. *)
+  val textarea : 
+       label:string
+    -> ('s -> ('c,string) Ohm.Run.t)
+    -> (field -> string -> ('c,('r,field * string) BatStd.result) Ohm.Run.t)
+    -> ('c,'s,'r) template
+
   (** A [type="password"] input field. *)
   val password : 
        label:string
