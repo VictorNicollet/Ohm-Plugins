@@ -534,7 +534,7 @@ module Skin = struct
 
   let textarea ~label seed parse = 
     wrap ".joy-fields"
-      (Asset_OhmForm_Textarea.render ()
+      (Asset_OhmForm_Textarea.render ())
       (string
 	 ~field:"textarea" 
 	 ~label:(".joy-field-label label",label)
