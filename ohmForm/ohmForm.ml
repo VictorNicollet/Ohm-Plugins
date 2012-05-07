@@ -522,7 +522,22 @@ module Skin = struct
 
   let text ~label seed parse = 
     wrap ".joy-fields"
-      (Asset_OhmForm_Input.render (object method kind = "text" end))
+      (Asset_OhmForm_Input.render (object 
+	method kind = "text" 
+	method css  = "" 
+      end))
+      (string
+	 ~field:"input" 
+	 ~label:(".joy-field-label label",label)
+	 ~error:(".joy-field-error label")
+	 seed parse)
+
+  let widetext ~label seed parse = 
+    wrap ".joy-fields"
+      (Asset_OhmForm_Input.render (object 
+	method kind = "text" 
+	method css  = "-wide" 
+      end))
       (string
 	 ~field:"input" 
 	 ~label:(".joy-field-label label",label)
@@ -531,7 +546,10 @@ module Skin = struct
 
   let password ~label parse = 
     wrap ".joy-fields"
-      (Asset_OhmForm_Input.render (object method kind = "password" end))
+      (Asset_OhmForm_Input.render (object 
+	method kind = "password" 
+	method css  = ""
+      end))
       (string
 	 ~field:"input" 
 	 ~label:(".joy-field-label label",label)
