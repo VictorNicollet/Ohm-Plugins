@@ -330,6 +330,13 @@ module Skin : sig
        label:string
     -> (field -> string -> ('c,('r,field * string) BatStd.result) Ohm.Run.t)
     -> ('c,'s,'r) template
-
-
+    
+  (** An optional field containing a sub-form *)
+  val optional : 
+       label:string
+    -> remove_html:('ctx,Ohm.Html.writer) Ohm.Run.t
+    -> add_html:('ctx,Ohm.Html.writer) Ohm.Run.t
+    -> ('seed -> ('ctx,'inseed option) Ohm.Run.t) 
+    -> ('ctx,'inseed,'result) template
+    -> ('ctx,'seed,'result option) template
 end
