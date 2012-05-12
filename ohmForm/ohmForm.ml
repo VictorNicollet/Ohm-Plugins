@@ -22,6 +22,13 @@ let seed_map f t =
     init     = (fun x -> t.init (f x)) ;
   }
 
+let seed_run_map f t = 
+  {
+    template = t.template ;
+    parse    = t.parse ;
+    init     = (fun x -> let! y = ohm (f x) in t.init y)
+  }
+
 let result_map f t = 
   {
     template = t.template ;
@@ -566,5 +573,24 @@ module Skin = struct
 	 ~label:(".joy-field-label label",label)
 	 ~error:(".joy-field-error label")
 	 (fun _ -> return "") parse)
-	 
+
+  let optional ~label ~remove_html ~add_html seed inner = 
+ 
+    let remove_html = Ohm.Run.memo remove_html in 
+    let item = Asset_OhmForm_Option_Item.render (object
+      method remove = remove_html
+    end) in
+    
+    seed_run_map seed 
+      (wrap ".joy-fields"
+	 (Asset_OhmForm_Option.render (object
+	   method label = label 
+	   method add   = add_html 
+	 end))
+	 (option 
+	    ~list:".joy-field-option ul"
+	    ~add:".joy-option-add"
+	    ~item
+	    ~remove:".joy-option-remove"
+	    inner))
 end
