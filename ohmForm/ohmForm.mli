@@ -332,7 +332,7 @@ module Skin : sig
     -> ('c,'s,'r) template
     
   (** An optional field containing a sub-form *)
-  val optional : 
+  val option : 
        label:string
     -> remove_html:('ctx,Ohm.Html.writer) Ohm.Run.t
     -> add_html:('ctx,Ohm.Html.writer) Ohm.Run.t

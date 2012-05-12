@@ -574,7 +574,7 @@ module Skin = struct
 	 ~error:(".joy-field-error label")
 	 (fun _ -> return "") parse)
 
-  let optional ~label ~remove_html ~add_html seed inner = 
+  let option ~label ~remove_html ~add_html seed inner = 
  
     let remove_html = Ohm.Run.memo remove_html in 
     let item = Asset_OhmForm_Option_Item.render (object
