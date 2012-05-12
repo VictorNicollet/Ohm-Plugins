@@ -231,6 +231,10 @@ val end_object :
   ('ctx,'seed,'result) template ->
   ('ctx,'seed,'result) template
 
+(** Convenience result parsing function. [keep field value] always 
+    evaluates to [return (Ok value)]. *)
+val keep : field -> 'data -> ('ctx,('data,field * string) BatStd.result) Ohm.Run.t
+
 (** Provides a source of data for initializing a form during construction. *)
 type 'seed source 
 

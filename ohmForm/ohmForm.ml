@@ -433,6 +433,8 @@ let begin_object = constant
 let end_object ?html template = 
   match html with None -> template | Some (sel,html) -> wrap sel html template
 
+let keep field data = return (Ok data) 
+
 type 'seed source = 
   [ `Json of Json_type.t * Json_type.t
   | `Seed of 'seed * Json_type.t
