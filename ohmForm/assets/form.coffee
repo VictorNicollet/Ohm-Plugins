@@ -92,7 +92,7 @@ window.joy = (($) ->
 
                 set: (v) ->
                         @remove()
-                        $.each value, (i,e) =>
+                        $.each v, (i,e) =>
                                 @append e
 
                 get: () ->
