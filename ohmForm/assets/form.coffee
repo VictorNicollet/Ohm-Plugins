@@ -80,7 +80,7 @@ window.joy = (($) ->
                         do @toggle
 
                 toggle: () ->
-                        show = !@config.max || @$list.children()/length < @config.max
+                        show = !@config.max || @$list.children().length < @config.max
                         @$add.toggle show
 
                 identify: () ->
