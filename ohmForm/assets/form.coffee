@@ -85,6 +85,11 @@ window.joy = (($) ->
 
                 identify: () ->
 
+                render: ($where) ->
+                        @$list = select($where,@config.ls)
+                        @$add  = select($where,@config.as).click () =>
+                                @append null
+
                 set: (v) ->
                         @remove()
                         $.each value, (i,e) =>
