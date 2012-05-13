@@ -581,9 +581,7 @@ module Skin = struct
   let option ~label ~remove_html ~add_html seed inner = 
  
     let remove_html = Ohm.Run.memo remove_html in 
-    let item = Asset_OhmForm_Option_Item.render (object
-      method remove = remove_html
-    end) in
+    let item = Asset_OhmForm_Option_Item.render remove_html in
     
     seed_run_map seed 
       (wrap ".joy-fields"
