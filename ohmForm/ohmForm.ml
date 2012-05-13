@@ -87,12 +87,13 @@ let string ~field ?label_html ?field_html ?error_html ?label ?error seed result 
 					"ehs", Json_type.String sel ]
       end in 
 
-      let for_label = 
+      let! for_label = ohm begin
 	match label with 
-	  | None            -> [] 
-	  | Some (sel,text) -> [ "ls", Json_type.String sel ;
-				 "lt", Json_type.String text ]
-      in 
+	  | None            -> return [] 
+	  | Some (sel,text) -> let! text = ohm text in
+			       return [ "ls", Json_type.String sel ;
+					"lt", Json_type.String text ]
+      end in 
 
       let for_error = 
 	match error with 
@@ -206,12 +207,13 @@ let select
 					"ehs", Json_type.String sel ]
       end in 
 
-      let for_label = 
+      let! for_label = ohm begin
 	match label with 
-	  | None            -> [] 
-	  | Some (sel,text) -> [ "ls", Json_type.String sel ;
-				 "lt", Json_type.String text ]
-      in 
+	  | None            -> return [] 
+	  | Some (sel,text) -> let! text = ohm text in 
+			       return [ "ls", Json_type.String sel ;
+					"lt", Json_type.String text ]
+      end in 
 
       let for_error = 
 	match error with 
@@ -294,12 +296,13 @@ let choice
 					"ehs", Json_type.String sel ]
       end in 
 
-      let for_label = 
+      let! for_label = ohm begin
 	match label with 
-	  | None            -> [] 
-	  | Some (sel,text) -> [ "ls", Json_type.String sel ;
-				 "lt", Json_type.String text ]
-      in 
+	  | None            -> return [] 
+	  | Some (sel,text) -> let! text = ohm text in
+			       return [ "ls", Json_type.String sel ;
+					"lt", Json_type.String text ]
+      end in 
 
       let for_error = 
 	match error with 
@@ -527,7 +530,8 @@ let result form = form.result
 module Skin = struct
 
   let with_ok_button ~ok t = 
-    wrap "" (Asset_OhmForm_WithOkButton.render (object method ok = ok end)) t
+    wrap "" (let! ok = ohm ok in
+	     Asset_OhmForm_WithOkButton.render (object method ok = ok end)) t
 
   let text ~label seed parse = 
     wrap ".joy-fields"
@@ -583,7 +587,8 @@ module Skin = struct
     
     seed_run_map seed 
       (wrap ".joy-fields"
-	 (Asset_OhmForm_Option.render (object
+	 (let! label = ohm label in 
+	  Asset_OhmForm_Option.render (object
 	   method label = label 
 	   method add   = add_html 
 	 end))

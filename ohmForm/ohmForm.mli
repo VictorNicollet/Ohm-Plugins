@@ -62,7 +62,7 @@ val string :
  ?label_html:(selector * ('ctx,Ohm.Html.writer) Ohm.Run.t) ->
  ?field_html:(selector * ('ctx,Ohm.Html.writer) Ohm.Run.t) ->
  ?error_html:(selector * ('ctx,Ohm.Html.writer) Ohm.Run.t) ->
- ?label:(selector * string) ->
+ ?label:(selector * ('ctx,string) Ohm.Run.t) ->
  ?error:selector ->
   ('seed -> ('ctx,string) Ohm.Run.t) ->
   (field -> string -> ('ctx,('result,field * string) BatStd.result) Ohm.Run.t) ->
@@ -95,7 +95,7 @@ val select :
  ?label_html:(selector * ('ctx,Ohm.Html.writer) Ohm.Run.t) ->
  ?field_html:(selector * ('ctx,Ohm.Html.writer) Ohm.Run.t) ->
  ?error_html:(selector * ('ctx,Ohm.Html.writer) Ohm.Run.t) ->
- ?label:(selector * string) ->
+ ?label:(selector * ('ctx,string) Ohm.Run.t)  ->
  ?error:selector ->
   format:'data Ohm.Fmt.fmt ->
   source:[`Static of ('data * string * ('ctx,Ohm.Html.writer) Ohm.Run.t option) list 
@@ -131,7 +131,7 @@ val choice :
  ?label_html:(selector * ('ctx,Ohm.Html.writer) Ohm.Run.t) ->
  ?field_html:(selector * ('ctx,Ohm.Html.writer) Ohm.Run.t) ->
  ?error_html:(selector * ('ctx,Ohm.Html.writer) Ohm.Run.t) ->
- ?label:(selector * string) ->
+ ?label:(selector * ('ctx,string) Ohm.Run.t) ->
  ?error:selector ->
   format:'data Ohm.Fmt.fmt ->
   source:('data * ('ctx,Ohm.Html.writer) Ohm.Run.t) list ->
@@ -302,38 +302,41 @@ val result : ('ctx,'result) form -> ('ctx,('result, (field * string) list) BatSt
 module Skin : sig
 
   (** A form wrapper that contains all the rendered fields and an "ok" button. *)
-  val with_ok_button : ok:string -> ('c,'s,'r) template -> ('c,'s,'r) template
+  val with_ok_button : 
+       ok:('c,string) Ohm.Run.t
+    -> ('c,'s,'r) template
+    -> ('c,'s,'r) template
 
   (** A [type="text"] input field. *)
   val text : 
-       label:string
+       label:('c,string) Ohm.Run.t
     -> ('s -> ('c,string) Ohm.Run.t)
     -> (field -> string -> ('c,('r,field * string) BatStd.result) Ohm.Run.t)
     -> ('c,'s,'r) template
 
   (** A [type="text"] input field with [class="-wide"] *)
   val widetext : 
-       label:string
+       label:('c,string) Ohm.Run.t
     -> ('s -> ('c,string) Ohm.Run.t)
     -> (field -> string -> ('c,('r,field * string) BatStd.result) Ohm.Run.t)
     -> ('c,'s,'r) template
 
   (** A [textarea] field. *)
   val textarea : 
-       label:string
+       label:('c,string) Ohm.Run.t
     -> ('s -> ('c,string) Ohm.Run.t)
     -> (field -> string -> ('c,('r,field * string) BatStd.result) Ohm.Run.t)
     -> ('c,'s,'r) template
 
   (** A [type="password"] input field. *)
   val password : 
-       label:string
+       label:('c,string) Ohm.Run.t
     -> (field -> string -> ('c,('r,field * string) BatStd.result) Ohm.Run.t)
     -> ('c,'s,'r) template
     
   (** An optional field containing a sub-form *)
   val option : 
-       label:string
+       label:('ctx,string) Ohm.Run.t
     -> remove_html:('ctx,Ohm.Html.writer) Ohm.Run.t
     -> add_html:('ctx,Ohm.Html.writer) Ohm.Run.t
     -> ('seed -> ('ctx,'inseed option) Ohm.Run.t) 
