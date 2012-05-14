@@ -453,6 +453,12 @@ let required error field string =
   else
     return $ Ok string
 
+let postpone handler field string = 
+  let! result = ohm $ handler field string in
+  match result with 
+    | Bad something -> return $ Bad something
+    | Ok  value     -> return $ Ok (value, field) 
+
 type 'seed source = 
   [ `Json of Json_type.t * Json_type.t
   | `Seed of 'seed * Json_type.t

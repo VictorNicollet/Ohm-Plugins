@@ -244,6 +244,14 @@ val required :
   -> string
   -> ('ctx,(string,field * string) BatStd.result) Ohm.Run.t
 
+(** Convenience result for adding the field to the returned value. This helps
+    when post-processing is required (such as when checking two fields together)
+    and the field needs to be available to add the error. 
+*)
+val postpone : 
+     (field -> 'data -> ('ctx,('data,field * string) BatStd.result) Ohm.Run.t)
+  -> (field -> 'data -> ('ctx,('data * field,field * string) BatStd.result) Ohm.Run.t)
+
 (** Provides a source of data for initializing a form during construction. *)
 type 'seed source 
 
