@@ -445,6 +445,14 @@ let end_object ?html template =
 
 let keep field data = return (Ok data) 
 
+let required error field string = 
+  let string = BatString.strip string in 
+  if string = "" then 
+    let! error = ohm error in 
+    return $ Bad (field,error)
+  else
+    return $ Ok string
+
 type 'seed source = 
   [ `Json of Json_type.t * Json_type.t
   | `Seed of 'seed * Json_type.t

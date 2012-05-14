@@ -235,6 +235,15 @@ val end_object :
     evaluates to [return (Ok value)]. *)
 val keep : field -> 'data -> ('ctx,('data,field * string) BatStd.result) Ohm.Run.t
 
+(** Convenience result parsing function. [keep error field value] either
+    evaluates to [return (Ok value)] if value is a non-empty string or to
+    [return (Bad (field,error))] otherwise. *)
+val required : 
+     ('ctx,string) Ohm.Run.t
+  -> field
+  -> string
+  -> ('ctx,(string,field * string) BatStd.result) Ohm.Run.t
+
 (** Provides a source of data for initializing a form during construction. *)
 type 'seed source 
 
