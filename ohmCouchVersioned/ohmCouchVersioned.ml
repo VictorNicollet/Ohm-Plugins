@@ -11,16 +11,18 @@ module type VERSIONED = sig
   module VersionDB : Ohm.CouchDB.CONFIG
   module Data : Ohm.Fmt.FMT
   module Diff : Ohm.Fmt.FMT
+  type ctx
+  val couchDB : ctx -> Ohm.CouchDB.ctx
   val apply : 
        Diff.t
-    -> ( Ohm.CouchDB.ctx ,
+    -> ( ctx ,
 	    Id.t 
 	 -> float 
 	 -> Data.t
-	 -> ( Ohm.CouchDB.ctx, Data.t ) Ohm.Run.t ) Ohm.Run.t
+	 -> ( ctx, Data.t ) Ohm.Run.t ) Ohm.Run.t
   module VersionData : Ohm.Fmt.FMT
   module ReflectedData : Ohm.Fmt.FMT
-  val reflect : Id.t -> Data.t -> ( Ohm.CouchDB.ctx, ReflectedData.t ) Ohm.Run.t
+  val reflect : Id.t -> Data.t -> ( ctx, ReflectedData.t ) Ohm.Run.t
 end
 
 module Make = functor (Versioned:VERSIONED) -> struct
@@ -32,6 +34,8 @@ module Make = functor (Versioned:VERSIONED) -> struct
   module ReflectedData = Versioned.ReflectedData
 
   module VersionId : Id.PHANTOM = Id.Phantom
+
+  let couchDB what = ohm (Run.edit_context Versioned.couchDB what)
 
   (* Basic object management *)
 
@@ -59,7 +63,8 @@ module Make = functor (Versioned:VERSIONED) -> struct
   type t = ObjectId.t * Object.t
 
   let get id = 
-    ObjectTable.get id |> Run.map (BatOption.map (fun obj -> id, obj)) 
+    Run.edit_context Versioned.couchDB
+      (ObjectTable.get id |> Run.map (BatOption.map (fun obj -> id, obj))) 
 
   let id (id,_) = id
   let current (_,obj) = obj # current
@@ -101,19 +106,23 @@ module Make = functor (Versioned:VERSIONED) -> struct
   end)
 
   let get_versions_before oid ?(since=0.0) time = 
-    let id = ObjectId.to_id oid in 
-    let! list = ohm $ VersionByIdView.doc_query
-      ~startkey:(id,since) ~endkey:(id,time) ~endinclusive:false ()
-    in
-    return $ List.map (fun i -> VersionId.of_id (i # id), i # doc) list
+    Run.edit_context Versioned.couchDB begin 
+      let id = ObjectId.to_id oid in 
+      let! list = ohm $ VersionByIdView.doc_query
+	~startkey:(id,since) ~endkey:(id,time) ~endinclusive:false ()
+      in
+      return $ List.map (fun i -> VersionId.of_id (i # id), i # doc) list
+    end
 
   let get_versions oid = get_versions_before oid max_float 
 
   let get_versions_since time oid = get_versions_before oid ~since:time max_float 
 
   let get_version vid = 
-    let! version = ohm_req_or (return None) $ VersionTable.get vid in 
-    return $ Some (vid, version)
+    Run.edit_context Versioned.couchDB begin
+      let! version = ohm_req_or (return None) $ VersionTable.get vid in 
+      return $ Some (vid, version)
+    end
 
   let version_time   (_,v) = v # time
   let version_data   (_,v) = v # data
@@ -124,33 +133,30 @@ module Make = functor (Versioned:VERSIONED) -> struct
   (* Diff application *)
 
   let apply_versions versions oid initial = 
-
-    Run.edit_context CouchDB.ctx_decay begin
       
-      let diffs_of_version version = 
-	let time = version_time version in 
-	List.map (fun diff -> time, diff) (version_diffs version)
-      in
-      
-      let pre_apply (time,diff) = 
-	let! result = ohm $ Versioned.apply diff in
-	return (time, result)
-      in
-      
-      let rec apply data = function
-	| []                   -> return data
-	| (time,diff) :: diffs -> let! data = ohm $ diff oid time data in
-				  apply data diffs
-      in	
-      
-      let diffs : (float * Diff.t) list = List.concat (List.map diffs_of_version versions) in	
-      
-      let! compiled_diffs = ohm $ Run.list_map pre_apply diffs in
-      let! current        = ohm $ apply initial compiled_diffs in
-      
-      return current
-    end
-
+    let diffs_of_version version = 
+      let time = version_time version in 
+      List.map (fun diff -> time, diff) (version_diffs version)
+    in
+    
+    let pre_apply (time,diff) = 
+      let! result = ohm $ Versioned.apply diff in
+      return (time, result)
+    in
+    
+    let rec apply data = function
+      | []                   -> return data
+      | (time,diff) :: diffs -> let! data = ohm $ diff oid time data in
+				apply data diffs
+    in	
+    
+    let diffs : (float * Diff.t) list = List.concat (List.map diffs_of_version versions) in	
+    
+    let! compiled_diffs = ohm $ Run.list_map pre_apply diffs in
+    let! current        = ohm $ apply initial compiled_diffs in
+    
+    return current
+  
   (* Advanced version management : snapshots *)
 
   let version_snapshot v = 
@@ -166,13 +172,13 @@ module Make = functor (Versioned:VERSIONED) -> struct
   module Signals = struct
 
     let call,   version_create   = Sig.make (Run.list_iter identity)
-    let version_create_call args = Run.edit_context CouchDB.ctx_decay (call args)
+    let version_create_call args = call args
 
     let call,           update           = Sig.make (Run.list_iter identity)
-    let update_call args = Run.edit_context CouchDB.ctx_decay (call args)
+    let update_call args = call args
 
     let call, explicit_reflect = Sig.make (Run.list_iter identity)
-    let explicit_reflect_call args = Run.edit_context CouchDB.ctx_decay (call args)
+    let explicit_reflect_call args = call args
 
   end
 
@@ -180,10 +186,11 @@ module Make = functor (Versioned:VERSIONED) -> struct
 
   let reflect oid = 
     
+    let! ctx = ohmctx identity in 
+
     let update oid = 
       let! obj = ohm_req_or (return (None, `keep)) $ ObjectTable.get oid in
-      let! reflected = ohm $ 
-	Run.edit_context CouchDB.ctx_decay (Versioned.reflect oid (obj # current)) in
+      let! reflected = ohm $ Run.with_context ctx (Versioned.reflect oid (obj # current)) in
 
       if reflected == obj # reflected then return (None, `keep) else 
 	let obj = object
@@ -195,7 +202,8 @@ module Make = functor (Versioned:VERSIONED) -> struct
 	return (Some obj, `put obj)
     in
 
-    let! obj = ohm_req_or (return ()) $ ObjectTable.transaction oid update in
+    let! obj = ohm_req_or (return ()) $ 
+      Run.edit_context Versioned.couchDB (ObjectTable.transaction oid update) in
     let! () = ohm $ Signals.explicit_reflect_call (oid, obj) in
     let! () = ohm $ Signals.update_call (oid, obj) in
 
@@ -204,6 +212,8 @@ module Make = functor (Versioned:VERSIONED) -> struct
   (* Creating a new version *)
 
   let refresh ?latest (oid : ObjectId.t) (default:Data.t option) = 
+
+    let! ctx = ohmctx identity in 
 
     let update oid = 
 
@@ -216,33 +226,36 @@ module Make = functor (Versioned:VERSIONED) -> struct
 	  then Some (obj # current), Some l 
 	  else Some (obj # initial), None
       in
-
-      let! versions = ohm begin
-	match fetch with 
-	  | None   -> get_versions oid 
-	  | Some v -> return [v]
-      end in
-      
-      match initial_opt with 
-	| None -> return (None, `keep) 
-	| Some initial -> 
 	  
-	  let! current        = ohm $ apply_versions versions oid initial in
-	  let! reflected      = ohm $ 
-	    Run.edit_context CouchDB.ctx_decay (Versioned.reflect oid current) in
-
-	  let time = List.fold_left (fun t (_,v) -> max (v # time) t) 0.0 versions in 
-
-	  let obj = object
-	    method initial   = initial
-	    method current   = current
-	    method reflected = reflected
-	    method time      = time
-	  end in 
-	  return (Some (oid, obj), `put obj)
+      Run.with_context ctx begin 
+	
+	let! versions = ohm begin
+	  match fetch with 
+	    | None   -> get_versions oid 
+	    | Some v -> return [v]
+	end in
+	
+	match initial_opt with 
+	  | None -> return (None, `keep) 
+	  | Some initial -> 
+	    
+	    let! current        = ohm $ apply_versions versions oid initial in
+	    let! reflected      = ohm $ Versioned.reflect oid current in
+	    
+	    let time = List.fold_left (fun t (_,v) -> max (v # time) t) 0.0 versions in 
+	    
+	    let obj = object
+	      method initial   = initial
+	      method current   = current
+	      method reflected = reflected
+	      method time      = time
+	    end in 
+	    return (Some (oid, obj), `put obj)
+      end 
     in
     
-    let! oid, obj = ohm_req_or (return None) $ ObjectTable.transaction oid update in
+    let! oid, obj = ohm_req_or (return None) $ 
+      Run.edit_context Versioned.couchDB (ObjectTable.transaction oid update) in
     let! () = ohm $ Signals.update_call (oid, obj) in
     return (Some (oid, obj))
 	
@@ -259,7 +272,8 @@ module Make = functor (Versioned:VERSIONED) -> struct
     end in
     
     let! () = ohm begin 
-      let! version = ohm $ VersionTable.transaction vid (VersionTable.insert version) in
+      let! version = ohm $ Run.edit_context Versioned.couchDB
+	(VersionTable.transaction vid (VersionTable.insert version)) in
       Signals.version_create_call (vid,version)
     end in
 
@@ -273,23 +287,24 @@ module Make = functor (Versioned:VERSIONED) -> struct
     do_update ~id ~default:(Some init) ~diffs ~info () |> Run.map BatOption.get
 
   let obliterate oid = 
+    Run.edit_context Versioned.couchDB begin
+      
+      (* Remove all versions first. *)
+      let id = ObjectId.to_id oid in 
+      let! versions = ohm $ VersionByIdView.doc_query 
+	~startkey:(id,0.0) ~endkey:(id,max_float) ()
+      in
+      let remove_version vid = 
+	VersionTable.transaction vid VersionTable.remove |> Run.map ignore in
+      let! _ = ohm $ Run.list_iter
+	(#id |- VersionId.of_id |- remove_version) versions
+      in 
+      
+      (* Remove the object itself *)
+      let! _ = ohm $ ObjectTable.transaction oid ObjectTable.remove in 
 
-    (* Remove all versions first. *)
-    let id = ObjectId.to_id oid in 
-    let! versions = ohm $ VersionByIdView.doc_query 
-      ~startkey:(id,0.0) ~endkey:(id,max_float) ()
-    in
-    let remove_version vid = 
-      VersionTable.transaction vid VersionTable.remove |> Run.map ignore in
-    let! _ = ohm $ Run.list_iter
-      (#id |- VersionId.of_id |- remove_version) versions
-    in 
-
-    (* Remove the object itself *)
-    let! _ = ohm $ ObjectTable.transaction oid ObjectTable.remove in 
-
-    return ()
-
+      return ()
+    end
 
   module Id = ObjectId
 

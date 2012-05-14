@@ -54,6 +54,9 @@ module type CONFIG = sig
   module VersionDB : Ohm.CouchDB.CONFIG
   module Id : Ohm.CouchDB.ID
   module Reason : Ohm.Fmt.FMT
+
+  type ctx
+  val couchDB : ctx -> Ohm.CouchDB.ctx
     
   val testing : bool
 
@@ -114,10 +117,10 @@ module Make : functor (C:CONFIG) -> sig
   end
 
   module Signals : sig
-    val update : (C.Id.t * Payment.t, (Ohm.CouchDB.ctx,unit) Ohm.Run.t) Ohm.Sig.channel
+    val update : (C.Id.t * Payment.t, (C.ctx,unit) Ohm.Run.t) Ohm.Sig.channel
   end
   
-  val get : C.Id.t -> (#Ohm.CouchDB.ctx,Payment.t option) Ohm.Run.t 
+  val get : C.Id.t -> (C.ctx,Payment.t option) Ohm.Run.t 
 
   val setExpressCheckout : 
        id:C.Id.t
@@ -129,16 +132,16 @@ module Make : functor (C:CONFIG) -> sig
     -> locale:[`AU|`AT|`BE|`CA|`CH|`CN|`DE|`ES|`GB|`FR|`IT|`NL|`PL|`US]
     -> config:Config.t
     -> reason:C.Reason.t
-    -> (#Ohm.CouchDB.ctx,string option) Ohm.Run.t
+    -> (C.ctx,string option) Ohm.Run.t
 
   val getExpressCheckoutDetails :
        C.Id.t
     -> config:Config.t
-    -> (#Ohm.CouchDB.ctx,bool) Ohm.Run.t
+    -> (C.ctx,bool) Ohm.Run.t
 
   val doExpressCheckoutPayment  :
        C.Id.t 
     -> config:Config.t 
-    -> (#Ohm.CouchDB.ctx,Status.t option) Ohm.Run.t
+    -> (C.ctx,Status.t option) Ohm.Run.t
    
 end
