@@ -196,13 +196,15 @@ window.joy = (($) ->
                         if 'fh' of @config
                                 @$field.attr('id',@id)
                                 execute @ctx, $wrap, @config.fh.code
-
+                        @$field.blur () -> 
+                        	$(@).toggleClass '-filled', /\S/.test $(@).val()  
+                        	
                 identify: ($where) ->
                         return if 'fh' of @config
                         select($where,@config.s).attr 'id', @id
 
                 set: (v) ->
-                        @$field.val(v || '')
+                        do @$field.val(v || '').blur
 
                 get: () ->
                         @$field.val()
