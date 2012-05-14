@@ -102,6 +102,9 @@ module type CONFIG = sig
   module VersionDB : CouchDB.CONFIG
   module Id : CouchDB.ID
   module Reason : Fmt.FMT
+
+  type ctx
+  val couchDB : ctx -> CouchDB.ctx
     
   val testing : bool
 
@@ -110,7 +113,6 @@ end
 module Make = functor(C:CONFIG) -> struct
 
   (* Type and module definitions *)
-
 
   module Payment = struct
     module T = struct
@@ -155,6 +157,9 @@ module Make = functor(C:CONFIG) -> struct
     module VersionData = Fmt.Unit
     module ReflectedData = Fmt.Unit
             
+    type ctx = C.ctx
+    let couchDB ctx = C.couchDB ctx
+
     let apply = function 
       | `payer payer -> return (fun id time data ->
 	return { data with Data.payer = Some payer }
