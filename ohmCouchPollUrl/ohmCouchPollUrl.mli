@@ -7,6 +7,9 @@ module type CONFIG = sig
   module PollDB    : Ohm.CouchDB.DATABASE
   module ContentDB : Ohm.CouchDB.DATABASE
 
+  type ctx 
+  val couchDB : ctx -> Ohm.CouchDB.ctx
+
   val poll : Source.t -> (string * Content.t Lazy.t) option 
 
 end
@@ -15,17 +18,17 @@ module Make : functor(Config:CONFIG) -> sig
 
   module Signals : sig
     val change : (Ohm.Id.t * Config.Source.t * Config.Content.t, 
-		   (Ohm.CouchDB.ctx,bool) Ohm.Run.t) Ohm.Sig.channel
+		   (Config.ctx,bool) Ohm.Run.t) Ohm.Sig.channel
   end
 
-  val poll : delay:float -> Config.Source.t -> (#Ohm.CouchDB.ctx,Ohm.Id.t) Ohm.Run.t
+  val poll : delay:float -> Config.Source.t -> (Config.ctx,Ohm.Id.t) Ohm.Run.t
 
-  val disable : Ohm.Id.t -> (#Ohm.CouchDB.ctx,unit) Ohm.Run.t
+  val disable : Ohm.Id.t -> (Config.ctx,unit) Ohm.Run.t
 
-  val insist : Ohm.Id.t -> (#Ohm.CouchDB.ctx,unit) Ohm.Run.t
+  val insist : Ohm.Id.t -> (Config.ctx,unit) Ohm.Run.t
 
-  val get : Ohm.Id.t -> (#Ohm.CouchDB.ctx,Config.Content.t option) Ohm.Run.t
+  val get : Ohm.Id.t -> (Config.ctx,Config.Content.t option) Ohm.Run.t
 
-  val process : (Ohm.CouchDB.ctx,bool) Ohm.Run.t
+  val process : float -> (Config.ctx,float option) Ohm.Run.t
 
 end

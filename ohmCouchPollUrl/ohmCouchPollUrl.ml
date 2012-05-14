@@ -11,6 +11,9 @@ module type CONFIG = sig
   module PollDB    : Ohm.CouchDB.DATABASE
   module ContentDB : Ohm.CouchDB.DATABASE
 
+  type ctx 
+  val couchDB : ctx -> Ohm.CouchDB.ctx
+
   val poll : Source.t -> (string * Content.t Lazy.t) option 
 
 end
@@ -74,21 +77,25 @@ module Make = functor(Config:CONFIG) -> struct
       gc      = 0 ;
       errors  = 0 ;
     }) in
-    let! _ = ohm $ InfoTable.transaction id (InfoTable.insert info) in
+    let! _ = ohm $ Run.edit_context Config.couchDB 
+      (InfoTable.transaction id (InfoTable.insert info)) in
     return id
 
   let disable id = 
     let update info = PollInfo.({ info with gc = 999 }) in
-    let! _ = ohm $ InfoTable.transaction id (InfoTable.update update) in
+    let! _ = ohm $ Run.edit_context Config.couchDB 
+      (InfoTable.transaction id (InfoTable.update update)) in
     return () 
 
   let insist id = 
     let update info = PollInfo.({ info with fetched = 0.0 }) in
-    let! _ = ohm $ InfoTable.transaction id (InfoTable.update update) in
+    let! _ = ohm $ Run.edit_context Config.couchDB
+      (InfoTable.transaction id (InfoTable.update update)) in
     return () 
 
   let get id = 
-    let! data = ohm_req_or (return None) $ ContentTable.get id in 
+    let! data = ohm_req_or (return None) $ 
+      Run.edit_context Config.couchDB (ContentTable.get id) in 
     return $ Some data.ContentData.content
 
   (* Fetching the oldest active source available. *)
@@ -104,7 +111,8 @@ module Make = functor(Config:CONFIG) -> struct
 
   let get_next () =
     let  now  = Unix.gettimeofday () in
-    let! list = ohm $ ByTimeView.doc_query ~limit:1 ~endkey:now () in
+    let! list = ohm $ Run.edit_context Config.couchDB 
+      (ByTimeView.doc_query ~limit:1 ~endkey:now ()) in
     match list with [] -> return None | h :: _ ->
       return $ Some (h # id, h # doc) 
 
@@ -117,7 +125,8 @@ module Make = functor(Config:CONFIG) -> struct
 	if info.PollInfo.digest = digest then return (`keep,digest) else
 	  let  content = Lazy.force lazy_content in 
 	  let  insert  = ContentData.({content}) in
-	  let! _    = ohm $ ContentTable.transaction id (ContentTable.insert insert) in
+	  let! _    = ohm $ Run.edit_context Config.couchDB
+	    (ContentTable.transaction id (ContentTable.insert insert)) in
 	  let! keep = ohm $ Signals.change_call (id,info.PollInfo.source,content) in 
 	  return begin 
 	    if keep then `keep, digest else ( 
@@ -130,15 +139,17 @@ module Make = functor(Config:CONFIG) -> struct
 	(Source.to_json_string info.PollInfo.source) (Printexc.to_string exn) ;
       return (`error,info.PollInfo.digest)
 
-  let process = 
+  let process delay = 
+
     let! () = ohm $ return () in
 
-    let! id, info = ohm_req_or (return false) $ get_next () in
+    let! id, info = ohm_req_or (return (Some delay)) $ get_next () in
 
     (* "lock" the task to avoid multiple processing *)
     let  fetched = Unix.gettimeofday () in
     let  update info = PollInfo.({ info with fetched }) in
-    let! _ = ohm $ InfoTable.transaction id (InfoTable.update update) in
+    let! _ = ohm $ Run.edit_context Config.couchDB
+      (InfoTable.transaction id (InfoTable.update update)) in
 
     (* Perform the processing *)
     let! status, digest = ohm $ download id info in
@@ -152,8 +163,9 @@ module Make = functor(Config:CONFIG) -> struct
       gc     = (1 + info.gc) * gc ;
       errors = (1 + info.errors) * err
     }) in
-    let! _ = ohm $ InfoTable.transaction id (InfoTable.update update) in
+    let! _ = ohm $ Run.edit_context Config.couchDB
+      (InfoTable.transaction id (InfoTable.update update)) in
 
-    return true
+    return None
     
 end
