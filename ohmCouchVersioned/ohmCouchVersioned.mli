@@ -23,15 +23,21 @@ module type VERSIONED = sig
   (** The format of the diffs applied to the versioned data *)
   module Diff : Ohm.Fmt.FMT
 
+  (** The evaluation context type. *)
+  type ctx
+
+  (** Extracting a CouchDB context from [ctx] *)
+  val couchDB : ctx -> Ohm.CouchDB.ctx
+
   (** Applying a diff to the versioned data. This function must only perform read-only database
       operations, but need not be idempotent. *)
   val apply : 
        Diff.t
-    -> ( Ohm.CouchDB.ctx ,
+    -> ( ctx ,
 	    Id.t 
 	 -> float 
 	 -> Data.t
-	 -> ( Ohm.CouchDB.ctx, Data.t ) Ohm.Run.t ) Ohm.Run.t
+	 -> ( ctx, Data.t ) Ohm.Run.t ) Ohm.Run.t
 
   (** Data associated to diffs stored in databases. *)
   module VersionData : Ohm.Fmt.FMT
@@ -41,7 +47,7 @@ module type VERSIONED = sig
     
   (** This function is called to generate the reflected data based on the current 
       main data. Must only perform read-only database operations. *)
-  val reflect : Id.t -> Data.t -> ( Ohm.CouchDB.ctx, ReflectedData.t ) Ohm.Run.t
+  val reflect : Id.t -> Data.t -> ( ctx, ReflectedData.t ) Ohm.Run.t
 
 end
 
@@ -76,10 +82,10 @@ module Make : functor (Versioned:VERSIONED) -> sig
   type t 
 
   (** Get a versioned object by its identifier. *)
-  val get : Id.t -> (#Ohm.CouchDB.ctx, t option) Ohm.Run.t
+  val get : Id.t -> (Versioned.ctx, t option) Ohm.Run.t
 
   (** Update the reflected data of an object. *)
-  val reflect : Id.t -> (#Ohm.CouchDB.ctx, unit) Ohm.Run.t
+  val reflect : Id.t -> (Versioned.ctx, unit) Ohm.Run.t
 
   (** The identifier of a versioned object. *)
   val id : t -> Id.t
@@ -100,10 +106,10 @@ module Make : functor (Versioned:VERSIONED) -> sig
   type version 
 
   (** Get the versions for a given object. They are sorted by time. *)
-  val get_versions : Id.t -> (#Ohm.CouchDB.ctx, version list) Ohm.Run.t
+  val get_versions : Id.t -> (Versioned.ctx, version list) Ohm.Run.t
 
   (** Get a specific version by id *)
-  val get_version : VersionId.t -> (#Ohm.CouchDB.ctx, version option) Ohm.Run.t
+  val get_version : VersionId.t -> (Versioned.ctx, version option) Ohm.Run.t
 
   (** The identifier of a version. *)
   val version_id : version -> VersionId.t
@@ -121,7 +127,7 @@ module Make : functor (Versioned:VERSIONED) -> sig
   val version_object : version -> Id.t
 
   (** A snapshot of an object's data before and after a given version. *)
-  val version_snapshot : version -> (#Ohm.CouchDB.ctx, (Data.t * Data.t) option) Ohm.Run.t 
+  val version_snapshot : version -> (Versioned.ctx, (Data.t * Data.t) option) Ohm.Run.t 
 
   (** Creating a new version. This does nothing if the object is missing,
       updates it otherwise. *)
@@ -130,7 +136,7 @@ module Make : functor (Versioned:VERSIONED) -> sig
     -> diffs:Diff.t list
     -> info:VersionData.t
     -> unit
-    -> (#Ohm.CouchDB.ctx, t option) Ohm.Run.t
+    -> (Versioned.ctx, t option) Ohm.Run.t
 
   (** Creating a new version, uses the provided initialization data 
       if the object is missing. *)
@@ -140,25 +146,25 @@ module Make : functor (Versioned:VERSIONED) -> sig
     -> diffs:Diff.t list
     -> info:VersionData.t
     -> unit
-    -> (#Ohm.CouchDB.ctx, t) Ohm.Run.t
+    -> (Versioned.ctx, t) Ohm.Run.t
 
   (** Obliterate an object and all associated versions, forever. 
       This is intended for heavy-duty data removal, usually for privacy reasons,
       and is not expected to find much use in typical usage patterns. *)
-  val obliterate : Id.t -> (#Ohm.CouchDB.ctx, unit) Ohm.Run.t
+  val obliterate : Id.t -> (Versioned.ctx, unit) Ohm.Run.t
 
   (** Signals sent by this module. *)
   module Signals : sig
 
     (** Triggered after a new version has been saved to the database. *)
-    val version_create : (version, (Ohm.CouchDB.ctx,unit) Ohm.Run.t) Ohm.Sig.channel
+    val version_create : (version, (Versioned.ctx,unit) Ohm.Run.t) Ohm.Sig.channel
 
     (** Triggered after an explicit request to re-compute the reflected data. *)
-    val explicit_reflect : (t, (Ohm.CouchDB.ctx, unit) Ohm.Run.t) Ohm.Sig.channel
+    val explicit_reflect : (t, (Versioned.ctx, unit) Ohm.Run.t) Ohm.Sig.channel
 
     (** Triggered whenever the object might have changed, for any reason (new version,
 	canceled version, or reflected data propagation) *)
-    val update : (t, (Ohm.CouchDB.ctx, unit) Ohm.Run.t) Ohm.Sig.channel
+    val update : (t, (Versioned.ctx, unit) Ohm.Run.t) Ohm.Sig.channel
 
   end
 
