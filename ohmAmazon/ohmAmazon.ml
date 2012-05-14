@@ -23,8 +23,8 @@ module type S3 = sig
     ->  key:string
     ->  redirect:string
     -> unit -> upload
-	   
-  val upload_form : upload -> string list -> ((#View.Context.text as 'ctx) View.t -> 'ctx View.t) -> 'ctx View.t
+
+  val upload_form : upload -> string list -> (Ohm.Html.writer -> Ohm.Html.writer) -> Ohm.Html.writer
 
   val upload_url : upload -> string * ((string * string) list) 
 
@@ -46,8 +46,10 @@ module S3 = functor(Account:ACCOUNT) -> struct
 
   let key = 
     let len       = String.length Account.key in
-    let o_key_pad = BatString.init 64 (fun i -> Char.chr ((if i < len then Char.code Account.key.[i] else 0) lxor 0x5c)) in
-    let i_key_pad = BatString.init 64 (fun i -> Char.chr ((if i < len then Char.code Account.key.[i] else 0) lxor 0x36)) in
+    let o_key_pad = BatString.init 64
+      (fun i -> Char.chr ((if i < len then Char.code Account.key.[i] else 0) lxor 0x5c)) in
+    let i_key_pad = BatString.init 64 
+      (fun i -> Char.chr ((if i < len then Char.code Account.key.[i] else 0) lxor 0x36)) in
     o_key_pad, i_key_pad
 
   let sign base64 = 
@@ -156,34 +158,36 @@ module S3 = functor(Account:ACCOUNT) -> struct
     let base64 = policy_of_upload upload in 
     sign base64
 
-  let upload_form upload accept inner ctx = 
+  let upload_form upload accept inner = 
     let url = "http://"^upload.bucket^".s3.amazonaws.com/" in
-    ctx 
-    |> View.str "<form action=\""
-    |> View.esc url
-    |> View.str "\" method=\"post\" enctype=\"multipart/form-data\"><input type=\"hidden\" name=\"key\" value=\""
-    |> View.esc upload.key 
-    |> View.str "/${filename}\"/><input type=\"hidden\" name=\"acl\" value=\""
-    |> View.esc (string_of_acl upload.acl)
-    |> View.str "\"/><input type=\"hidden\" name=\"redirect\" value=\""
-    |> View.esc upload.redirect
-    |> View.str "\"/><input type=\"hidden\" name=\"AWSAccessKeyId\" value=\""
-    |> View.esc Account.id
-    |> View.str "\"/><input type=\"hidden\" name=\"Policy\" value=\""
-    |> View.esc (policy_of_upload upload)
-    |> View.str "\"/><input type=\"hidden\" name=\"Signature\" value=\""
-    |> View.esc (signature_of_upload upload)
-    |> View.str "\"/>"
-    |> inner begin fun ctx -> 
-      ctx 
-      |> View.str "<input type=\"file\" name=\"file\""
-      |> (fun ctx -> if accept = [] then ctx else ctx 
-	  |> View.str " accept=\""
-	  |> View.implode (View.str ",") View.esc accept
-	  |> View.str "\"")
-      |> View.str "/>"
-    end 
-    |> View.str "</form>"
+    Html.(concat [ 
+      str "<form action=\"" ;
+      esc url ;
+      str "\" method=\"post\" enctype=\"multipart/form-data\">" ;
+      str "<input type=\"hidden\" name=\"key\" value=\"" ;
+      esc upload.key ; 
+      str "/${filename}\"/><input type=\"hidden\" name=\"acl\" value=\"" ;
+      esc (string_of_acl upload.acl) ;
+      str "\"/><input type=\"hidden\" name=\"redirect\" value=\"" ;
+      esc upload.redirect ;
+      str "\"/><input type=\"hidden\" name=\"AWSAccessKeyId\" value=\"" ;
+      esc Account.id ;
+      str "\"/><input type=\"hidden\" name=\"Policy\" value=\"" ;
+      esc (policy_of_upload upload) ;
+      str "\"/><input type=\"hidden\" name=\"Signature\" value=\"" ;
+      esc (signature_of_upload upload) ;
+      str "\"/>" ;
+      inner (concat [
+	str "<input type=\"file\" name=\"file\"" ;
+	concat ( if accept = [] then [] else [
+	  str " accept=\"" ;
+	  implode (List.map esc accept) (str ",") ;
+	  str "\""
+	]) ;
+	str "/>"
+      ]) ;
+      str "</form>"
+    ])
 
   let upload_url upload = 
     let url = "http://"^upload.bucket^".s3.amazonaws.com/" in
