@@ -216,10 +216,10 @@ window.joy = (($) ->
 
                 error: (path,text) ->
                         return if path.length > 0
-                        @$error.text text
+                        @$error.text(text).parent().show()
 
                 clear: () ->
-                        @$error.text ''
+                        @$error.text('').parent().hide()
 
         # Choice (simple or multiple)
 
@@ -293,10 +293,10 @@ window.joy = (($) ->
 
                 error: (path,text) ->
                         return if path.length > 0
-                        @$error.text text
+                        @$error.text(text).parent().show()
 
                 clear: () ->
-                        @$error.text ''
+                        @$error.text('').parent().hide()
 
         # Select drop-down / auto-complete node
 
