@@ -216,10 +216,10 @@ window.joy = (($) ->
 
                 error: (path,text) ->
                         return if path.length > 0
-                        @$error.text(text).parent().show()
+                        @$error.text(text).closest('.error-root').addClass '-error'
 
                 clear: () ->
-                        @$error.text('').parent().hide()
+                        @$error.text('').closest('.error-root').removeClass '-error'
 
         # Choice (simple or multiple)
 
@@ -293,10 +293,10 @@ window.joy = (($) ->
 
                 error: (path,text) ->
                         return if path.length > 0
-                        @$error.text(text).parent().show()
+                        @$error.text(text).closest('.error-root').addClass '-error'
 
                 clear: () ->
-                        @$error.text('').parent().hide()
+                        @$error.text('').closest('.error-root').removeClass '-error'
 
         # Select drop-down / auto-complete node
 
