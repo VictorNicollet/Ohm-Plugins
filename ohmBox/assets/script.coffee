@@ -28,7 +28,7 @@ class OhmBoxStack
       contentType: 'application/json'
       type: 'POST'
       data: args
-      success: (data) -> 
+      success: (data) => 
         callback data if rq is @rq 
 
   # Load a box with a certain url. 
