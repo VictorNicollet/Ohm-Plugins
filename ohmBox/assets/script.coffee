@@ -67,12 +67,12 @@ class OhmBoxStack
           float: 'left'
           overflow: 'hidden' 
         box.root = { $: box.$ } 
-        box.re = new RegExp('^' + data.root)
+        box.re = new RegExp('^' + data.prefix)
         @add url, box
         @box = box
         call @box, data.code   
-        data.prefix.push url 
-        @replace box, data.prefix
+        data.parents.push url 
+        @replace box, data.parents
 
   # Remove all <div>s inside @$c that do not match one of the
   # keys in the prefix. 
@@ -115,14 +115,14 @@ class OhmBoxStack
 
     # Define the three possible animations
     animReplace = (callback) -> 
-      do oldB.$c.hide
+      do oldB.$c.hide if oldB
       do newB.$c.show
       callback.call @
 
     animShiftRight = (callback) -> 
       oldB.$c.after newB.$c.show() 
       @$c.animate { left: (-@w) + 'px' }, 'fast', =>
-        do oldB.$c.hide
+        do oldB.$c.hide if oldB
         @c.css { left: 0 } 
         callback.call @
 
@@ -130,7 +130,7 @@ class OhmBoxStack
       oldB.$c.before newB.$c.show()
       @$c.css { left: (-@w)+'px' } 
       @$c.animate { left: 0 }, 'fast', => 
-        do oldB.$c.hide
+        do oldB.$c.hide if OldB
         callback.call @
 
     # Select which animation to play
@@ -138,7 +138,7 @@ class OhmBoxStack
     same = newP.length < oldP.length + 2 
 
     if same
-      l = Math.max oldP.length newP.length
+      l = Math.max oldP.length, newP.length
       for i in [0..l-1]
         same = oldP[i] is newP[i]
         break if !same
