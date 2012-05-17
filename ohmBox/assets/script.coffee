@@ -6,6 +6,7 @@ class OhmBoxStack
     @$c = $('<div/>').append(@$l).css { overflow: 'hidden' }
     @$  = ctx.$.find(sel).append(@$c)
     @w  = @$.width()
+    @$l.css { width: (2 * @w) + 'px' }
 
     @memory  = {}
     @current = null
@@ -83,7 +84,7 @@ class OhmBoxStack
       if key in @prefix
         memory[key] = @memory[key]
       else
-        do @memory.$c.remove    
+        do @memory[key].$c.remove    
     @memory = memory
 
   # Add a new box with key to the list of available boxes
@@ -93,12 +94,11 @@ class OhmBoxStack
     do box.$c.hide if @current isnt null
     do @memory[key].$c.remove if key of @memory 
     @memory[key] = box
-    @$c.append box.$c    
+    @$l.append box.$c    
 
   # Animation rules: 
-  #  [a,b,c] -> [a,b]   : shift left
   #  [a,b,c] -> [a]     : shift left
-  #  [a,b]   -> [a,b,c] : shift right
+  #  [a]     -> [a,b,c] : shift right
   #  anything else      : replace
 
   replace: (newB,newP) -> 
@@ -121,30 +121,29 @@ class OhmBoxStack
 
     animShiftRight = (callback) -> 
       oldB.$c.after newB.$c.show() 
-      @$c.animate { left: (-@w) + 'px' }, 'fast', =>
+      @$l.animate { left: (-@w) + 'px' }, 'fast', =>
         do oldB.$c.hide if oldB
-        @c.css { left: 0 } 
+        @$l.css { left: 0 } 
         callback.call @
 
     animShiftLeft = (callback) -> 
       oldB.$c.before newB.$c.show()
-      @$c.css { left: (-@w)+'px' } 
-      @$c.animate { left: 0 }, 'fast', => 
-        do oldB.$c.hide if OldB
+      @$l.css { left: (-@w)+'px' } 
+      @$l.animate { left: 0 }, 'fast', => 
+        do oldB.$c.hide if oldB
         callback.call @
 
     # Select which animation to play
     anim = animReplace
-    same = newP.length < oldP.length + 2 
+    same = true
 
-    if same
-      l = Math.max oldP.length, newP.length
-      for i in [0..l-1]
-        same = oldP[i] is newP[i]
-        break if !same
+    l = Math.min oldP.length, newP.length
+    for i in [0..l-1]
+      same = oldP[i] is newP[i]
+      break if !same
 
     if same 
-      if oldP.length is newP.length - 1
+      if oldP.length < newP.length
         anim = animShiftRight
       if oldP.length > newP.length 
         anim = animShiftLeft
