@@ -181,6 +181,27 @@ ohmBoxStack = null
   box = ohmBoxStack.box
   box = box[path.shift()] while path.length > 0
   box.$.html(html.html)
-  call box(html.code)
+  call box, html.code
 
 #>> ohmBox_call(url:string,name:int list,args:Json.t)
+
+@ohmBox_call = (url,name,args) -> 
+  $.ajax 
+    url: url 
+    contentType: 'application/json'
+    type: 'POST'
+    data: $.toJSON { react:name, args:args } 
+    success: (data) -> 
+      box = ohmBoxStack.box
+      box = box[name.shift()] while name.length > 1
+      call box, data.code
+
+@OhmBox = 
+  remote: (what,more,callback) -> 
+    $.ajax 
+      url: what[0]
+      contentType: 'application/json'
+      type: 'POST'
+      data: $.toJSON { react:what[1], args:what[2], more:more } 
+      success: callback
+    
