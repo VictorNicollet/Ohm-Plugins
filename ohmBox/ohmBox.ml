@@ -255,3 +255,11 @@ module Make = functor(Ctx:CTX) -> struct
 	
 end
 
+let render ~url ~default = 
+  let id = Id.gen () in
+  Html.(concat [
+    str "<div id=\"" ;
+    esc (Id.str id) ;
+    str "\"/>" ;
+    run (Js.ohmBox_init ~id:(Id.str id) ~url ~default ())
+  ])

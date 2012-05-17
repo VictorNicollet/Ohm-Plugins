@@ -1,6 +1,6 @@
 class OhmBoxStack
 
-  constructor: (ctx,sel,@url) -> 
+  constructor: (ctx,sel,@url,@dflt) -> 
   
     @$l = $('<div/>').css { position: 'relative', overflow: 'hidden', left: '0px' }
     @$c = $('<div/>').append(@$l).css { overflow: 'hidden' }
@@ -21,7 +21,6 @@ class OhmBoxStack
   # Fetch box data from a remote URL
 
   fetch: (url,cUrl,callback) -> 
-    url = '/' + url if url[0] isnt '/'
     rq = ++@rq
     args = $.toJSON cUrl
     $.ajax
@@ -35,6 +34,10 @@ class OhmBoxStack
   # Load a box with a certain url. 
 
   load: (url,force) -> 
+
+    url = '/' + url if url[0] isnt '/'
+    url = @dflt if url is '/'
+
     if @current && @current.re.test url 
  
       # The requested URL is intended to be managed by the current box.
@@ -159,11 +162,11 @@ class OhmBoxStack
     
 ohmBoxStack = null
 
-#>> ohmBox_init(url:string)
+#>> ohmBox_init(id:string,url:string,default:string)
 
-@ohmBox_init = (url) ->
+@ohmBox_init = (id,url,dflt) ->
   ctx = { $: $('body') }
-  ohmBoxStack = new OhmBoxStack(ctx,'#box-root',url)
+  ohmBoxStack = new OhmBoxStack(ctx,'#'+id,url,dflt)
   $.address.change (event) -> 
     ohmBoxStack.load event.path, false
 

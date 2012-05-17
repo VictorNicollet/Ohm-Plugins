@@ -56,7 +56,6 @@ end
 (** The box module configurator. *)
 module Make : functor(Ctx:CTX) -> sig
 
-
   (** A box result. *)
   type result
     
@@ -184,3 +183,6 @@ val reaction_json : 'fmt reaction -> 'fmt -> Json_type.t
     and executes the returned code, within the box context. 
 *)
 val reaction_js : 'fmt reaction -> 'fmt -> Ohm.JsCode.t
+
+(** Render the hole where boxes are rendered. *)
+val render : url:string -> default:string -> Ohm.Html.writer
