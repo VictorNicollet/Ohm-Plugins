@@ -610,4 +610,22 @@ module Skin = struct
 	    ~item
 	    ~remove:".joy-option-remove"
 	    inner))
+
+  let radio ~label ~format ~source seed parse = 
+    wrap ".joy-fields"
+      (Asset_OhmForm_Radio.render ())
+      (choice 
+	 ~field:".joy-field-list"
+	 ~label:(".joy-field-label label",label)
+	 ~error:(".joy-field-error label")
+	 ~format
+	 ~source
+	 ~multiple:false
+	 (fun s -> let! s = ohm (seed s) in
+		   match s with 
+		     | None   -> return [ ]
+		     | Some x -> return [x])
+	 (fun i v -> let v = match v with [x] -> Some x | _ -> None in
+		     parse i v))
+
 end

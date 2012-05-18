@@ -350,6 +350,15 @@ module Skin : sig
        label:('c,string) Ohm.Run.t
     -> (field -> string -> ('c,('r,field * string) BatStd.result) Ohm.Run.t)
     -> ('c,'s,'r) template
+
+  (** A list of radio-buttons. *)
+  val radio : 
+    label:('ctx,string) Ohm.Run.t ->
+    format:'data Ohm.Fmt.fmt ->
+    source:('data * ('ctx,Ohm.Html.writer) Ohm.Run.t) list ->
+    ('seed -> ('ctx,'data option) Ohm.Run.t) ->
+    (field -> 'data option  -> ('ctx,('result,field * string) BatStd.result) Ohm.Run.t) ->
+    ('ctx,'seed,'result) template    
     
   (** An optional field containing a sub-form *)
   val option : 
