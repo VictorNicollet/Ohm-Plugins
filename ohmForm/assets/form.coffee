@@ -278,11 +278,11 @@ window.joy = (($) ->
                                 html.push '<label>'
                                 if @config.m
                                         html.push '<input type="checkbox" name="',
-                                                self.id + '-' + i,
+                                                @id + '-' + i,
                                                 '" value="', i, '"/>'
                                 else
                                         html.push '<input type="radio" name="',
-                                                self.id,
+                                                @id,
                                                 '" value="', i, '"/>'
                                 html.push e.html, '</label>'
                         @$field.html html.join('')
