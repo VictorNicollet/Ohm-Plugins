@@ -285,7 +285,7 @@ window.joy = (($) ->
                                                 self.id,
                                                 '" value="', i, '"/>'
                                 html.push e.html, '</label>'
-                        @$field.html html.join()
+                        @$field.html html.join('')
 
                 identify: () ->
 
