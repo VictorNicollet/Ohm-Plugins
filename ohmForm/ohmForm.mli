@@ -353,6 +353,7 @@ module Skin : sig
 
   (** A list of radio-buttons. *)
   val radio : 
+   ?horizontal:bool -> 
     label:('ctx,string) Ohm.Run.t ->
     format:'data Ohm.Fmt.fmt ->
     source:('data * ('ctx,Ohm.Html.writer) Ohm.Run.t) list ->

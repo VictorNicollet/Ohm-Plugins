@@ -611,9 +611,11 @@ module Skin = struct
 	    ~remove:".joy-option-remove"
 	    inner))
 
-  let radio ~label ~format ~source seed parse = 
+  let radio ?(horizontal=false) ~label ~format ~source seed parse = 
     wrap ".joy-fields"
-      (Asset_OhmForm_Radio.render ())
+      (Asset_OhmForm_Radio.render (object 
+	method horiz = if horizontal then " -horizontal" else "" 
+      end))
       (choice 
 	 ~field:".joy-field-list"
 	 ~label:(".joy-field-label label",label)
