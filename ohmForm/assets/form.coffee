@@ -20,6 +20,7 @@ window.joy = (($) ->
 
         # Form nodes are objects that implement the following interface:
         ## constructor(ctx,config)
+        ## select
         ## identify($where)
         ## render($where)
         ## set(value)
@@ -35,11 +36,15 @@ window.joy = (($) ->
                 constructor: (@ctx,@config) ->
                         @inner = recurse(@ctx,@config.i)
 
+                select: ($where) -> 
+                        @$s = select($where,@config.s)
+
                 render: ($where) ->
                         @$inner = $ @config.h.html
-                        select($where,@config.s).append(@$inner)
+                        @$s.append(@$inner)
                         @inner.identify @$inner
                         execute @ctx, @$inner, @config.h.code
+                        @inner.select @$inner
                         @inner.render @$inner
 
                 identify: () ->
@@ -72,6 +77,7 @@ window.joy = (($) ->
                         @$list.append $item
                         $item.data 'form', inner
                         execute @ctx, $item, @config.ih.code
+                        inner.select $item
                         inner.render $item
                         inner.set value
                         select($item,@config.rs).click () =>
@@ -85,11 +91,14 @@ window.joy = (($) ->
 
                 identify: () ->
 
-                render: ($where) ->
+                select: ($where) ->
                         @$list = select($where,@config.ls)
-                        @$add  = select($where,@config.as).click () =>
-                                @append null
+                        @$add  = select($where,@config.as)
 
+                render: ($where) ->
+                        @$add.click () =>
+                                @append null
+                        
                 set: (v) ->
                         @remove()
                         $.each v, (i,e) =>
@@ -126,6 +135,10 @@ window.joy = (($) ->
                         @l.identify $where
                         @r.identify $where
 
+                select: ($where) -> 
+                        @l.select $where
+                        @r.select $where
+
                 render: ($where) ->
                         @l.render $where
                         @r.render $where
@@ -159,6 +172,7 @@ window.joy = (($) ->
                 remove: () ->
                 error: () ->
                 clear: () ->
+                select: () ->
                 render: () ->
                 identify: () ->
 
@@ -168,6 +182,8 @@ window.joy = (($) ->
 
                 constructor: (@ctx,@config) ->
                         @id = gen()
+
+                select: () ->
 
                 render: ($where) ->
                         @$label = $ '<label/>'
@@ -197,8 +213,8 @@ window.joy = (($) ->
                                 @$field.attr('id',@id)
                                 execute @ctx, $wrap, @config.fh.code
                         @$field.blur () -> 
-                        	$(@).toggleClass '-filled', /\S/.test $(@).val()  
-                        	
+                                $(@).toggleClass '-filled', /\S/.test $(@).val()  
+                                
                 identify: ($where) ->
                         return if 'fh' of @config
                         select($where,@config.s).attr 'id', @id
@@ -227,6 +243,8 @@ window.joy = (($) ->
 
                 constructor: (@ctx,@config) ->
                         @id = gen()
+
+                select: () ->
 
                 render: ($where) ->
                         @$label = $ '<label/>'
@@ -329,6 +347,9 @@ window.joy = (($) ->
                         else
                                 respond local
 
+                select: ($where) ->
+                        @string.select($where)
+
                 render: ($where) ->
                         @string.render($where)
                         @string.$field.autocomplete
@@ -426,6 +447,7 @@ window.joy = (($) ->
                 init    = $.parseJSON($hidden.val())
 
                 root.identify $form
+                root.select   $form
                 root.render   $form
                 root.set      init
 
