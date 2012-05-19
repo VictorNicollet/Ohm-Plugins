@@ -33,6 +33,16 @@ module Seg : sig
 
 end
 
+(** Generate an URL from a base (the URL of the page on which boxes appear)
+    and segments. 
+
+    {[
+let url = OhmBox.url "http://localhost/boxes" [ "foo" ; "bar" ] in
+assert (url = "http://localhost/boxes/#/foo/bar") 
+    ]} 
+*)
+val url : string -> string list -> string
+
 (** A box context. Serves as an execution environment for box-related
     functions. *)
 type ctx
@@ -151,13 +161,16 @@ let! reaction = Box.react fmt body in expr
       it is in reaction or render-box mode. 
       
       {[
-Box.response ~prefix ~parents build body req res
+Box.response ~prefix ~parents root build body req res
       ]}
 
       This creates an HTTP response based on request [req] and response 
       [res]. The [body] is evaluated within a context that is 
       constructed by [build] and returns a {!result} that corresponds 
       to the kind of request that was received. 
+
+      [url] is the URL of the page on which the boxes appear. The box-path
+      will be appended to this url, after a [/#/].
 
       The [prefix] and [parents] are optional, and only used in AJAX 
       render-box mode in order to determine animations. If none are
@@ -166,11 +179,25 @@ Box.response ~prefix ~parents build body req res
   val response : 
        ?prefix:string
     -> ?parents:string list 
+    -> string
     -> (ctx -> ('ctx,Ctx.t) Ohm.Run.t)
     -> (Ctx.t,result) Ohm.Run.t
     -> ('server,string list) Ohm.Action.request
     -> Ohm.Action.response 
     -> ('ctx,Ohm.Action.response) Ohm.Run.t
+
+  (** Generate an URL based on segments. 
+
+      {[
+module MySeg = OhmBox.Seg.OfJson(struct
+  type json t = [ `foo | `bar ]
+  let default = `bar
+end)
+
+let url (s:MySeg.t) = Box.url [ fst MySeg.seg s ] 
+      ]}
+  *)
+  val url : string list -> (Ctx.t, string) Ohm.Run.t
 
 end
 

@@ -42,6 +42,7 @@ type ctx = {
   ctx_box_name  : int list ;
   ctx_boxes     : int ref ;
   ctx_reactions : int ref ;
+  ctx_url       : string * string list;
   ctx_root      : string ;
   ctx_response  : Action.response ;
   ctx_argjson   : Json_type.t ;
@@ -49,7 +50,7 @@ type ctx = {
   ctx_mode      : [ `Lazy | `Eager | `Reaction of int list ] ;
 }
 
-let make ?reaction ctx_argjson ctx_morejson ctx_new_segs ctx_old_segs ctx_root ctx_response = {
+let make ?reaction ctx_argjson ctx_morejson ctx_new_segs ctx_old_segs ctx_url ctx_root ctx_response = {
   ctx_new_segs  ;
   ctx_old_segs  ;
   ctx_response  ;
@@ -58,6 +59,7 @@ let make ?reaction ctx_argjson ctx_morejson ctx_new_segs ctx_old_segs ctx_root c
   ctx_box_name  = [] ;
   ctx_argjson   ;
   ctx_morejson  ;
+  ctx_url       ;
   ctx_root      ;
   ctx_mode      = let r name = `Reaction name in
 		  BatOption.(default (if ctx_old_segs = [] then `Eager else `Lazy) 
@@ -116,6 +118,10 @@ let reaction_js reaction arg =
   Js.ohmBox_call ~url:reaction.r_root ~name:reaction.r_name ~args () 
 
 type box = int list
+
+let url base segs = 
+  base ^ "/#/" ^ String.concat "/" 
+    (List.map Netencoding.Url.encode segs)
 
 module Make = functor(Ctx:CTX) -> struct
 
@@ -192,7 +198,7 @@ module Make = functor(Ctx:CTX) -> struct
 
   let default_args = ParseArgs.of_json (Json_type.Object [])
 
-  let response ?(prefix="/") ?(parents=[]) build body req res = 
+  let response ?(prefix="/") ?(parents=[]) url build body req res = 
 
     (* Parse the arguments received from the client as JSON *)
     let json = BatOption.default (Json_type.Object []) (Action.Convenience.get_json req) in
@@ -210,6 +216,9 @@ module Make = functor(Ctx:CTX) -> struct
 	Action.json json res else res 
     in
     
+    let segs = BatString.nsplit prefix "/" in
+    let segs = List.filter ((<>) "") segs in
+
     (* Build the context based on what was received *)
     let ctx = make 
       ?reaction:(args#react) 
@@ -217,6 +226,7 @@ module Make = functor(Ctx:CTX) -> struct
       (args#more) 
       (req#args) 
       (BatOption.default [] (args#same)) 
+      (url,segs)
       (Action.url (req#self) (req#server) (req#args)) 
       res
     in
@@ -252,7 +262,12 @@ module Make = functor(Ctx:CTX) -> struct
 	  return (Action.javascript (JsCode.seq list) res) 
 
     end
-	
+
+  let url list =   
+    let! ctx = ohmctx Ctx.get in
+    let  root, more = ctx.ctx_url in
+    return $ url root (more @ list)
+
 end
 
 let render ~url ~default = 
