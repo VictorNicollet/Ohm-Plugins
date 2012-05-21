@@ -54,17 +54,17 @@ let get session =
       Buffer.contents buffer 
     in
 
-    let json      = Json_io.json_of_string ~recursive:true response in 
-    let objekt    = Json_type.Browse.objekt json in 
-    let firstname = Json_type.Browse.string (List.assoc "first_name" objekt) in
-    let lastname  = Json_type.Browse.string (List.assoc "last_name" objekt) in
-    let email     = Json_type.Browse.string (List.assoc "email" objekt) in
+    let json      = Json.of_string response in 
+    let firstname, lastname, email, verified, gender = Json.to_object begin fun ~opt ~req -> 
+      Json.to_string (req "first_name"), 
+      Json.to_string (req "last_name"),
+      Json.to_string (req "email"),
+      Json.to_bool   (req "verified"),
+      try Some (if Json.to_string (req "gender") = "male" then `m else `f) with Not_found -> None
+    end json in 
+
     let picture   = "https://graph.facebook.com/" ^ Id.str (session # uid) ^ "/picture" in
-    let verified  = Json_type.Browse.bool   (List.assoc "verified" objekt) in
-    let gender    = 
-      try Some (if Json_type.Browse.string (List.assoc "gender" objekt) = "male" then `m else `f)
-      with Not_found -> None
-    in
+
     if verified then `valid ( object
       method firstname = firstname
       method lastname  = lastname
@@ -74,6 +74,7 @@ let get session =
       method gender    = gender
     end ) 
     else `invalid
+
   with exn -> 
     log "Facebook.get : for url : %s" url ;
     log "Facebook.get : ERROR : %s" (Printexc.to_string exn) ;

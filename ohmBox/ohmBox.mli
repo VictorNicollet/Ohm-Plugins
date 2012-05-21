@@ -19,8 +19,8 @@ module Seg : sig
 
   module type JSON = sig
     type t 
-    val t_of_json : Json_type.t -> t
-    val json_of_t : t -> Json_type.t
+    val t_of_json : Ohm.Json.t -> t
+    val json_of_t : t -> Ohm.Json.t
     val default : t      
   end
 
@@ -149,7 +149,7 @@ let! reaction = Box.react fmt body in expr
   val react : 
        'arg Ohm.Fmt.fmt 
     -> (    'arg
-	 -> Json_type.t
+	 -> Ohm.Json.t
          -> 'arg reaction
 	 -> Ohm.Action.response 
 	 -> (Ctx.t,Ohm.Action.response) Ohm.Run.t )
@@ -204,7 +204,7 @@ end
 (** Builds some JSON representing a reaction with its expected 
     parameters. 
 *)
-val reaction_json : 'fmt reaction -> 'fmt -> Json_type.t
+val reaction_json : 'fmt reaction -> 'fmt -> Ohm.Json.t
 
 (** Builds a piece of JavaScript code that calls a given reaction 
     and executes the returned code, within the box context. 

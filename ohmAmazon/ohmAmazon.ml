@@ -118,17 +118,17 @@ module S3 = functor(Account:ACCOUNT) -> struct
     in
 
     let conditions =  [
-	Json_type.Build.objekt [ "bucket", Json_type.Build.string upload.bucket ] ;
-	Json_type.Build.objekt [ "acl", Json_type.Build.string (string_of_acl upload.acl) ] ;
-	Json_type.Build.objekt [ "redirect", Json_type.Build.string upload.redirect ] ;
-	Json_type.Build.array [ 
-	  Json_type.Build.string "starts-with" ;
-	  Json_type.Build.string "$key" ;
-	  Json_type.Build.string (upload.key^"/") ] ;
-	Json_type.Build.array [
-	  Json_type.Build.string "content-length-range" ;
-	  Json_type.Build.int (fst upload.size) ;
-	  Json_type.Build.int (snd upload.size) ]
+	Json.Object [ "bucket", Json.String upload.bucket ] ;
+	Json.Object [ "acl", Json.String (string_of_acl upload.acl) ] ;
+	Json.Object [ "redirect", Json.String upload.redirect ] ;
+	Json.Array [ 
+	  Json.String "starts-with" ;
+	  Json.String "$key" ;
+	  Json.String (upload.key^"/") ] ;
+	Json.Array [
+	  Json.String "content-length-range" ;
+	  Json.Int (fst upload.size) ;
+	  Json.Int (snd upload.size) ]
       ] 
     in
 
@@ -136,16 +136,16 @@ module S3 = functor(Account:ACCOUNT) -> struct
       match upload.filename with 
 	| None -> conditions
 	| Some filename ->
-	  Json_type.Build.objekt [ "Filename", Json_type.Build.string filename ]
+	  Json.Object [ "Filename", Json.String filename ]
 	  :: conditions
     in
 
-    let json = Json_type.Build.objekt [
-      "expiration", Json_type.Build.string expires ;
-      "conditions", Json_type.Build.array conditions
+    let json = Json.Object [
+      "expiration", Json.String expires ;
+      "conditions", Json.Array conditions
     ] in
 
-    let string = Json_io.string_of_json ~recursive:true ~compact:true json in 
+    let string = Json.to_string json in 
 
     let base64 = BatBase64.str_encode string in
     

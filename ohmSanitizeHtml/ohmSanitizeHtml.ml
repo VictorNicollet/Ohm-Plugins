@@ -24,26 +24,26 @@ module Clean = Fmt.Make(struct
   type t = doc 
 
   let rec inline_to_json = function 
-    | `Text s -> Json_type.String s
-    | `A (url,inline) -> Json_type.Object [ "a", Json_type.Build.list inline_to_json inline ;
-					    "u", Json_type.String url ]
-    | `B inline -> Json_type.Object [ "b", Json_type.Build.list inline_to_json inline ] 
-    | `I inline -> Json_type.Object [ "i", Json_type.Build.list inline_to_json inline ] 
-    | `BR       -> Json_type.Array []
+    | `Text s -> Json.String s
+    | `A (url,inline) -> Json.Object [ "a", Json.of_list inline_to_json inline ;
+				       "u", Json.String url ]
+    | `B inline -> Json.Object [ "b", Json.of_list inline_to_json inline ] 
+    | `I inline -> Json.Object [ "i", Json.of_list inline_to_json inline ] 
+    | `BR       -> Json.Array []
   
   let rec json_to_inline = function 
-    | Json_type.String s -> `Text s
-    | Json_type.Array [] -> `BR
-    | Json_type.Object [ "b", json ] -> `B (Json_type.Browse.list json_to_inline json) 
-    | Json_type.Object [ "i", json ] -> `I (Json_type.Browse.list json_to_inline json) 
-    | Json_type.Object [ "a", json ; 
-			 "u", Json_type.String u ] 
-    | Json_type.Object [ "u", Json_type.String u ;
-			 "a", json ] -> `A (u, Json_type.Browse.list json_to_inline json) 
-    | _ -> raise (Json_type.Json_error "Incorrect format for OhmSanitizeHtml.Clean") 
+    | Json.String s -> `Text s
+    | Json.Array [] -> `BR
+    | Json.Object [ "b", json ] -> `B (Json.to_list json_to_inline json) 
+    | Json.Object [ "i", json ] -> `I (Json.to_list json_to_inline json) 
+    | Json.Object [ "a", json ; 
+			 "u", Json.String u ] 
+    | Json.Object [ "u", Json.String u ;
+			 "a", json ] -> `A (u, Json.to_list json_to_inline json) 
+    | _ -> raise (Json.Error "Incorrect format for OhmSanitizeHtml.Clean") 
 
-  let json_of_t = Json_type.Build.list (Json_type.Build.list inline_to_json)
-  let t_of_json = Json_type.Browse.list (Json_type.Browse.list json_to_inline)
+  let json_of_t = Json.of_list (Json.of_list inline_to_json)
+  let t_of_json = Json.to_list (Json.to_list json_to_inline)
 
 end)
 

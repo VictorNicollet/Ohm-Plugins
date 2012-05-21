@@ -95,8 +95,7 @@ module Make = functor (Versioned:VERSIONED) -> struct
 
   module VersionByIdView = CouchDB.DocView(struct      
     module Key = Fmt.Make(struct
-      module Float = Fmt.Float
-      type json t = Id.t * Float.t
+      type json t = (Id.t * float)
     end)
     module Value = Fmt.Unit
     module Doc = Version

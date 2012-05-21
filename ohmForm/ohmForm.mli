@@ -195,7 +195,7 @@ val select_search_param :
 val select_return_list : 
   'data Ohm.Fmt.fmt -> 
   ('data * string * ('ctx,Ohm.Html.writer) Ohm.Run.t option) list ->
-  ('ctx, (string * Json_type.t) list) Ohm.Run.t
+  ('ctx, (string * Ohm.Json.t) list) Ohm.Run.t
 
 (** A field concatenator.
     
@@ -261,12 +261,12 @@ val empty : 'any source
 (** Initialize the form with all empty fields, but carrying a parametric payload that
     will be available on submission.
 *)
-val from_params : Json_type.t -> 'any source
+val from_params : Ohm.Json.t -> 'any source
 
 (** Initialize the form using an application-provided type. This is usually performed when
     displaying a form for the first time, using database-provided data. 
 *)
-val from_seed : ?params:Json_type.t -> 'seed -> 'seed source
+val from_seed : ?params:Ohm.Json.t -> 'seed -> 'seed source
 
 (** Initialize the form using a string sent by the client. This is usually performed when
     parsing the client-sent response. Note that the string contains JSON data serialized
@@ -278,7 +278,7 @@ val from_post : string -> 'any source
     internally, but it may be used when the client response was sent as part of a
     larger JSON value and is already deserialized.
 *)
-val from_post_json : Json_type.t -> 'any source
+val from_post_json : Ohm.Json.t -> 'any source
 
 (** A form instance, carries some data which may be extracted into the result type. *)
 type ('ctx,'result) form
@@ -295,10 +295,10 @@ val create :
 val render : ('ctx,'result) form -> string -> ('ctx,Ohm.Html.writer) Ohm.Run.t
 
 (** Compute the server's JSON response. Includes both the form data and any specified errors. *)
-val response : ('ctx,'result) form -> ('ctx, (string * Json_type.t) list) Ohm.Run.t
+val response : ('ctx,'result) form -> ('ctx, (string * Ohm.Json.t) list) Ohm.Run.t
 
 (** Extract the parameters from a form. *)
-val params : ('ctx,'result) form -> Json_type.t
+val params : ('ctx,'result) form -> Ohm.Json.t
 
 (** Alter the form by adding errors. These are provided as an associative list. Only the last
     error for any field is kept. The new form is returned.

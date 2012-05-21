@@ -16,8 +16,8 @@ module Seg = struct
 
   module type JSON = sig
     type t 
-    val t_of_json : Json_type.t -> t
-    val json_of_t : t -> Json_type.t
+    val t_of_json : Json.t -> t
+    val json_of_t : t -> Json.t
     val default : t      
   end
 
@@ -26,9 +26,9 @@ module Seg = struct
     open Json
     let seg = 
       (fun t -> match json_of_t t with 
-	| Json_type.String s -> s 
+	| Ohm.Json.String s -> s 
 	| _ -> assert false),
-      (fun s -> try t_of_json (Json_type.String s) 
+      (fun s -> try t_of_json (Ohm.Json.String s) 
 	with _ -> default)
   end
 
@@ -45,8 +45,8 @@ type ctx = {
   ctx_url       : string * string list;
   ctx_root      : string ;
   ctx_response  : Action.response ;
-  ctx_argjson   : Json_type.t ;
-  ctx_morejson  : Json_type.t ;
+  ctx_argjson   : Json.t ;
+  ctx_morejson  : Json.t ;
   ctx_mode      : [ `Lazy | `Eager | `Reaction of int list ] ;
 }
 
@@ -110,8 +110,8 @@ type 'a reaction = {
 
 let reaction_json reaction arg = 
   let arg  = reaction.r_fmt.Fmt.to_json arg in
-  let name = Json_type.Build.list Json_type.Build.int reaction.r_name in
-  Json_type.Array [ Json_type.String reaction.r_root ; name ; arg ]
+  let name = Json.of_list Json.of_int reaction.r_name in
+  Json.Array [ Json.String reaction.r_root ; name ; arg ]
 
 let reaction_js reaction arg = 
   let args = reaction.r_fmt.Fmt.to_json arg in
@@ -191,24 +191,24 @@ module Make = functor(Ctx:CTX) -> struct
     type json t = <
      ?same  : string list option ;
      ?react : int list option ;
-     ?args  : Json_type.t = Json_type.Null ;
-     ?more  : Json_type.t = Json_type.Null
+     ?args  : Json.t = Json.Null ;
+     ?more  : Json.t = Json.Null
     >
   end)
 
-  let default_args = ParseArgs.of_json (Json_type.Object [])
+  let default_args = ParseArgs.of_json (Json.Object [])
 
   let response ?(prefix="/") ?(parents=[]) url build body req res = 
 
     (* Parse the arguments received from the client as JSON *)
-    let json = BatOption.default (Json_type.Object []) (Action.Convenience.get_json req) in
+    let json = BatOption.default (Json.Object []) (Action.Convenience.get_json req) in
     let args = BatOption.default default_args (ParseArgs.of_json_safe json) in
 
 
     (* If this is a first request, provide parents and prefix *)
     let json = 
-      [ "prefix", Json_type.String prefix ;
-	"parents", Json_type.Build.list Json_type.Build.string parents ]
+      [ "prefix", Json.String prefix ;
+	"parents", Json.of_list Json.of_string parents ]
     in
     
     let res = 
