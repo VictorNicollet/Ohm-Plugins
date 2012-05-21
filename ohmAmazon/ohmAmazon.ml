@@ -145,7 +145,7 @@ module S3 = functor(Account:ACCOUNT) -> struct
       "conditions", Json.Array conditions
     ] in
 
-    let string = Json.to_string json in 
+    let string = Json.serialize json in 
 
     let base64 = BatBase64.str_encode string in
     

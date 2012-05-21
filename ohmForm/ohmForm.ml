@@ -515,7 +515,7 @@ let render form url =
     Html.str "\" method=\"POST\"><input type=\"hidden\" id=\"" ;
     Html.esc (Id.str id) ;
     Html.str "\" value=\"" ;
-    Html.esc (Json.to_string data) ;
+    Html.esc (Json.serialize data) ;
     Html.str "\"/></form>" ;
     Html.run (JsCode.make ~name:"joy" ~args:[ Id.to_json id ; config ; form.params ])
   ] in
