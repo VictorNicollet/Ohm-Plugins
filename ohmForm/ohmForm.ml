@@ -512,7 +512,7 @@ let render form url =
   let html = Html.concat [    
     Html.str "<form action=\"" ;
     Html.esc url ;
-    Html.str "\" method=\"POST\"><input type=\"hidden\" id=\"" ;
+    Html.str "\" method=\"POST\" autocomplete=\"off\"><input type=\"hidden\" id=\"" ;
     Html.esc (Id.str id) ;
     Html.str "\" value=\"" ;
     Html.esc (Json.serialize data) ;

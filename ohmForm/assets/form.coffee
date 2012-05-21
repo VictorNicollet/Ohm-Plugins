@@ -217,7 +217,7 @@ window.joy = (($) ->
                                 
                 identify: ($where) ->
                         return if 'fh' of @config
-                        select($where,@config.s).attr 'id', @id
+                        select($where,@config.s).attr {'id': @id, 'name': @id} 
 
                 set: (v) ->
                         do @$field.val(v || '').blur
