@@ -14,7 +14,7 @@ window.joy = (($) ->
                         f = eval ('('+e[0]+')');
                         f.apply ctx, e[1..]
 
-        lastid = 0
+        lastid = Math.floor(Math.random()*65536) 
         gen = () ->
                 'form_id_'+(++lastid)
 
