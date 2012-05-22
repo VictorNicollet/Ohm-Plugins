@@ -318,6 +318,10 @@ val result : ('ctx,'result) form -> ('ctx,('result, (field * string) list) BatSt
 (** Convenience utility functions. *)
 module Convenience : sig
 
+  (** Test whether a string (that has been stripped of leading and trailing whitespace) 
+      is probably a correct e-mail. *)
+  val valid_email : string -> bool 
+
   (** Email field validation. *)
   val email : 
        required:('ctx,string) Ohm.Run.t

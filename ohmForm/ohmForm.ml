@@ -542,6 +542,9 @@ module Convenience = struct
 
   let email_regexp = Str.regexp "^[^@]+@[^@]+\\.[a-zA-Z]+$"
 
+  let valid_email string = 
+    Str.string_match email_regexp string 0 
+
   let email ~required error field string = 
     let string = BatString.strip string in 
     if string = "" then
