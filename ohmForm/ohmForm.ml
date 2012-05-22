@@ -538,6 +538,23 @@ let has_errors form = form.errors <> []
 
 let result form = form.result
 
+module Convenience = struct
+
+  let email_regexp = Str.regexp "^[^@]+@[^@]+\\.[a-zA-Z]+$"
+
+  let email ~required error field string = 
+    let string = BatString.strip string in 
+    if string = "" then
+      let! error = ohm required in 
+      return $ Bad (field,error)
+    else if Str.string_match email_regexp string 0 then
+      return $ Ok string
+    else
+      let! error = ohm error in
+      return $ Bad (field,error)
+
+end
+
 module Skin = struct
 
   let with_ok_button ~ok t = 

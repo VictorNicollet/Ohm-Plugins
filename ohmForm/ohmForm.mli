@@ -315,6 +315,19 @@ val has_errors : ('ctx,'result) form -> bool
 *)
 val result : ('ctx,'result) form -> ('ctx,('result, (field * string) list) BatStd.result) Ohm.Run.t
 
+(** Convenience utility functions. *)
+module Convenience : sig
+
+  (** Email field validation. *)
+  val email : 
+       required:('ctx,string) Ohm.Run.t
+    -> ('ctx,string) Ohm.Run.t
+    -> field
+    -> string
+    -> ('ctx,(string,field * string) BatStd.result) Ohm.Run.t
+    
+end
+
 (** A default form skin: allows rendering the form with a standard HTML appearance. *)
 module Skin : sig
 
