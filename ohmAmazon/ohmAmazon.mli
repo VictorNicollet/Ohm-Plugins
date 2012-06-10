@@ -20,7 +20,10 @@ module type S3 = sig
     ->  redirect:string
     -> unit -> upload
 	   
-  val upload_form : upload -> string list -> (Ohm.Html.writer -> Ohm.Html.writer) -> Ohm.Html.writer
+  val upload_form : 
+       upload
+    -> (Ohm.Html.writer -> ('ctx,Ohm.Html.writer) Ohm.Run.t)
+    -> ('ctx,Ohm.Html.writer) Ohm.Run.t
 
   val upload_url : upload -> string * ((string * string) list) 
 

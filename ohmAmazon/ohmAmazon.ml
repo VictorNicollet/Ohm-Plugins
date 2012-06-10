@@ -1,7 +1,7 @@
 (* Ohm is © 2011 Victor Nicollet *)
 
 open Ohm
-open Util
+open Ohm.Universal
 open BatPervasives
 
 module type ACCOUNT = sig
@@ -24,7 +24,10 @@ module type S3 = sig
     ->  redirect:string
     -> unit -> upload
 
-  val upload_form : upload -> string list -> (Ohm.Html.writer -> Ohm.Html.writer) -> Ohm.Html.writer
+  val upload_form : 
+       upload
+    -> (Ohm.Html.writer -> ('ctx,Ohm.Html.writer) Ohm.Run.t)
+    -> ('ctx,Ohm.Html.writer) Ohm.Run.t
 
   val upload_url : upload -> string * ((string * string) list) 
 
@@ -158,9 +161,15 @@ module S3 = functor(Account:ACCOUNT) -> struct
     let base64 = policy_of_upload upload in 
     sign base64
 
-  let upload_form upload accept inner = 
+  let upload_form upload inner = 
+
     let url = "http://"^upload.bucket^".s3.amazonaws.com/" in
-    Html.(concat [ 
+
+    let input = Html.str "<input type=\"file\" name=\"file\"/>" in
+
+    let! inner = ohm $ inner input in 
+
+    return Html.(concat [ 
       str "<form action=\"" ;
       esc url ;
       str "\" method=\"post\" enctype=\"multipart/form-data\">" ;
@@ -177,15 +186,7 @@ module S3 = functor(Account:ACCOUNT) -> struct
       str "\"/><input type=\"hidden\" name=\"Signature\" value=\"" ;
       esc (signature_of_upload upload) ;
       str "\"/>" ;
-      inner (concat [
-	str "<input type=\"file\" name=\"file\"" ;
-	concat ( if accept = [] then [] else [
-	  str " accept=\"" ;
-	  implode (List.map esc accept) (str ",") ;
-	  str "\""
-	]) ;
-	str "/>"
-      ]) ;
+      inner ;
       str "</form>"
     ])
 
@@ -246,7 +247,7 @@ module S3 = functor(Account:ACCOUNT) -> struct
 	Util.log "Amazon S3: PUT %s" url ;
 	let c = match Util.get_binary_contents file with 
 	  | Some c -> c
-	  | None -> log "Amazon.request:  [PUT] %s file not found" file ; ""
+	  | None -> Util.log "Amazon.request:  [PUT] %s file not found" file ; ""
 	in (new Http_client.put url c :> Http_client.http_call)	
       | `DELETE -> Util.log "Amazon S3: DELETE %s" url ;
 	(new Http_client.delete url :> Http_client.http_call)
@@ -284,7 +285,7 @@ module S3 = functor(Account:ACCOUNT) -> struct
 	      with _ -> None
 	end
     with Http_client.Http_protocol e -> 
-      log "Amazon.find_upload: %s" (Printexc.to_string e) ; None
+      Util.log "Amazon.find_upload: %s" (Printexc.to_string e) ; None
     
   let download ~bucket ~key callback = 
     let file () = 
@@ -301,10 +302,10 @@ module S3 = functor(Account:ACCOUNT) -> struct
 	    match call # response_body # store with 
 	      | `File file -> callback file 
 	      | `Memory ->
-		log "Amazon.download: Ocamlnet stored in memory when file was requested" ; None
+		Util.log "Amazon.download: Ocamlnet stored in memory when file was requested" ; None
 	end 
     with Http_client.Http_protocol e ->
-      log "Amazon.download: %s" (Printexc.to_string e) ; None
+      Util.log "Amazon.download: %s" (Printexc.to_string e) ; None
 
   let delete ~bucket ~key = 
     try 
@@ -314,7 +315,7 @@ module S3 = functor(Account:ACCOUNT) -> struct
 	~key
 	begin fun call -> true end
     with Http_client.Http_protocol e ->
-      log "Amazon.delete: %s" (Printexc.to_string e) ; false
+      Util.log "Amazon.delete: %s" (Printexc.to_string e) ; false
 
   let publish ~bucket ~key ~file = 
     try 
@@ -324,7 +325,7 @@ module S3 = functor(Account:ACCOUNT) -> struct
 	~key
 	begin fun call -> true end 
     with Http_client.Http_protocol e -> 
-      log "Amazon.find_upload: %s" (Printexc.to_string e) ; false
+      Util.log "Amazon.find_upload: %s" (Printexc.to_string e) ; false
     
     
 end
