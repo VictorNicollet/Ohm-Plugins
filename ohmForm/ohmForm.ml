@@ -460,19 +460,15 @@ let postpone handler field string =
     | Ok  value     -> return $ Ok (value, field) 
 
 type 'seed source = 
-  [ `Json of Json.t * Json.t
-  | `Seed of 'seed * Json.t
+  [ `Json of Json.t
+  | `Seed of 'seed 
   ]
 
-let empty = `Json (Json.Null, Json.Null)
+let empty = `Json Json.Null
 
-let from_params params = `Json (Json.Null, params)
+let from_seed seed = `Seed seed
 
-let from_seed ?(params=Json.Null) seed = `Seed (seed,params) 
-
-let from_post_json json = 
-  try Json.to_object (fun ~opt ~req -> `Json (req "data",req "params")) json
-  with _ -> empty
+let from_post_json json = `Json json
 
 let from_post post = 
   try let json = Json.of_string post in
@@ -483,15 +479,14 @@ type ('ctx,'result) form = {
   result : ('ctx,('result, (field * string) list) BatStd.result) Run.t ;
   errors : (field * string) list ;
   config : ('ctx,Json.t) Run.t ;
-  data   : ('ctx,Json.t) Run.t ;
-  params : Json.t
+  data   : ('ctx,Json.t) Run.t 
 }
     
 let create ~template ~source = 
   
-  let data, params = match source with 
-    | `Seed (seed,params) -> Run.memo (template.init seed), params
-    | `Json (json,params) -> return json, params
+  let data = match source with 
+    | `Seed seed -> Run.memo (template.init seed)
+    | `Json json -> return json
   in
   
   {
@@ -500,24 +495,22 @@ let create ~template ~source =
     errors = [] ;
     config = Run.memo template.template ;
     data   ;
-    params ;
   }
 
-let params form = form.params
 
 let render form url =
   let! data   = ohm form.data in
   let! config = ohm form.config in 
   let id = Id.gen () in 
   let html = Html.concat [    
-    Html.str "<form action=\"" ;
-    Html.esc url ;
-    Html.str "\" method=\"POST\" autocomplete=\"off\"><input type=\"hidden\" id=\"" ;
+    Html.str "<form action=\"\" method=\"POST\" autocomplete=\"off\"><input type=\"hidden\" id=\"" ;
     Html.esc (Id.str id) ;
     Html.str "\" value=\"" ;
     Html.esc (Json.serialize data) ;
     Html.str "\"/></form>" ;
-    Html.run (JsCode.make ~name:"joy" ~args:[ Id.to_json id ; config ; form.params ])
+    Html.run (JsCode.make ~name:"joy" ~args:[ Id.to_json id ; 
+					      JsCode.Endpoint.to_json url ; 
+					      config ])
   ] in
   return html
 
@@ -539,6 +532,8 @@ let has_errors form = form.errors <> []
 let result form = form.result
 
 module Convenience = struct
+
+  let render form url = render form (JsCode.Endpoint.of_url url)
 
   let email_regexp = Str.regexp "^[^@]+@[^@]+\\.[a-zA-Z]+$"
 

@@ -438,12 +438,11 @@ window.joy = (($) ->
 
         # The main function
 
-        joy = (id,config,params) ->
+        joy = (id,url,config) ->
                 ctx     = @
                 $hidden = $('#' + id)
                 $form   = $hidden.parent()
                 root    = recurse(ctx,config)
-                url     = $form.attr 'action'
                 init    = $.parseJSON($hidden.val())
 
                 root.identify $form
@@ -451,24 +450,32 @@ window.joy = (($) ->
                 root.render   $form
                 root.set      init
 
+                if typeof url is 'string'
+                  send = (data,callback) -> 
+                    $.ajax
+                      url: url
+                      data: $.toJSON data 
+                      type: 'POST'
+                      contentType: 'application/json'
+                      success: callback 
+                else
+                  send = (data,callback) -> 
+                    f = eval('('+url[0]+')')
+                    a = url[1..]
+                    a.push data, callback
+                    f.apply @, a
+
                 $form.submit () ->
                         data = root.get()
                         json = $.toJSON(data)
                         $hidden.val json
-
-                        $.ajax
-                                url: url
-                                data: $.toJSON { data: data, params: params || null}
-                                type: 'POST'
-                                contentType: 'application/json'
-                                success: (res) ->
-                                        root.set res.data if res.data
-                                        if res.errors
-                                                do root.clear
-                                                root.error error[0], error[1] for error in res.errors
-                                        execute ctx, $form, res.code if res.code
-
-                        return false
+                        send data, (res) -> 
+                          root.set res.data if res.data
+                          if res.errors
+                            do root.clear
+                            root.error error[0], error[1] for error in res.errors
+                          execute ctx, $form, res.code if res.code
+                        false
 
         recurse = (ctx,config) ->
                 return node_empty if config is null

@@ -258,15 +258,10 @@ type 'seed source
 (** Initialize the form with all empty fields. *)
 val empty : 'any source 
 
-(** Initialize the form with all empty fields, but carrying a parametric payload that
-    will be available on submission.
-*)
-val from_params : Ohm.Json.t -> 'any source
-
 (** Initialize the form using an application-provided type. This is usually performed when
     displaying a form for the first time, using database-provided data. 
 *)
-val from_seed : ?params:Ohm.Json.t -> 'seed -> 'seed source
+val from_seed : 'seed -> 'seed source
 
 (** Initialize the form using a string sent by the client. This is usually performed when
     parsing the client-sent response. Note that the string contains JSON data serialized
@@ -290,15 +285,12 @@ val create :
   -> ('ctx,'result) form
 
 (** Render the form HTML, outputs both HTML and JavaScript. The URL to which the form must post
-    is provided as well.
+    (or any other endpoint) is provided as well.
 *)
-val render : ('ctx,'result) form -> string -> ('ctx,Ohm.Html.writer) Ohm.Run.t
+val render : ('ctx,'result) form -> Ohm.JsCode.Endpoint.t -> ('ctx,Ohm.Html.writer) Ohm.Run.t
 
 (** Compute the server's JSON response. Includes both the form data and any specified errors. *)
 val response : ('ctx,'result) form -> ('ctx, (string * Ohm.Json.t) list) Ohm.Run.t
-
-(** Extract the parameters from a form. *)
-val params : ('ctx,'result) form -> Ohm.Json.t
 
 (** Alter the form by adding errors. These are provided as an associative list. Only the last
     error for any field is kept. The new form is returned.
@@ -317,6 +309,9 @@ val result : ('ctx,'result) form -> ('ctx,('result, (field * string) list) BatSt
 
 (** Convenience utility functions. *)
 module Convenience : sig
+
+  (** Render the form assuming that the endpoint (to which the form is posted) is an URL *)
+  val render : ('ctx,'result) form -> string -> ('ctx,Ohm.Html.writer) Ohm.Run.t
 
   (** Test whether a string (that has been stripped of leading and trailing whitespace) 
       is probably a correct e-mail. *)
