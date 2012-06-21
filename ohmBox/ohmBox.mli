@@ -201,10 +201,8 @@ let url (s:MySeg.t) = Box.url [ fst MySeg.seg s ]
 
 end
 
-(** Builds some JSON representing a reaction with its expected 
-    parameters. 
-*)
-val reaction_json : 'fmt reaction -> 'fmt -> Ohm.Json.t
+(** An endpoint for a given reaction. *)
+val reaction_endpoint : 'fmt reaction -> 'fmt -> Ohm.JsCode.Endpoint.t
 
 (** Builds a piece of JavaScript code that calls a given reaction 
     and executes the returned code, within the box context. 

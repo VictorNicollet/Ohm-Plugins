@@ -198,6 +198,14 @@ ohmBoxStack = null
       box = box[name.shift()] while name.length > 1
       call data.code
 
+@ohmBox_endpoint = (url,name,args,data,callback) -> 
+  $.ajax 
+    url: url 
+    contentType: 'application/json'
+    type: 'POST'
+    data: $.toJSON { react:name, args:args, more:data } 
+    success: callback
+
 @OhmBox = 
   remote: (what,more,callback) -> 
     $.ajax 
