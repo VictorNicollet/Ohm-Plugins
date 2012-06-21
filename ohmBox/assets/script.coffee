@@ -45,7 +45,7 @@ class OhmBoxStack
       # Ignore all box metadata provided by server. 
       @fetch url, @prefix[@prefix.length-1], (data) => 
         @box = @current
-        call @box, data.code
+        call data.code
         @prefix[@prefix.length-1] = url
 
     else if force is false && @prefix.length > 1 && @prefix[@prefix.length-2] is url && url in @memory
@@ -71,7 +71,7 @@ class OhmBoxStack
         box.re = new RegExp('^' + data.prefix)
         @add url, box
         @box = box
-        call @box, data.code   
+        call data.code   
         data.parents.push url 
         @replace box, data.parents
 
@@ -183,7 +183,7 @@ ohmBoxStack = null
   box = ohmBoxStack.box
   box = box[path.shift()] while path.length > 0
   box.$.html(html.html)
-  call box, html.code
+  call html.code
 
 #>> ohmBox_call(url:string,name:int list,args:Json.t)
 
@@ -196,7 +196,7 @@ ohmBoxStack = null
     success: (data) -> 
       box = ohmBoxStack.box
       box = box[name.shift()] while name.length > 1
-      call box, data.code
+      call data.code
 
 @OhmBox = 
   remote: (what,more,callback) -> 
