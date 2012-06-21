@@ -14,19 +14,22 @@ module type TABULAR = sig
   module LineDB : Ohm.CouchDB.CONFIG
   module UniqDB : Ohm.CouchDB.CONFIG
 
-  val background : (Ohm.CouchDB.ctx,bool) Ohm.Run.t -> unit 
+  type ctx 
+  val context : ctx -> Ohm.CouchDB.ctx
+
+  val background : (ctx,bool) Ohm.Run.t -> unit 
 
   val sources_of_evaluator : Evaluator.t -> Source.t list
   val apply :
        Key.t
     -> Evaluator.t
-    -> (#Ohm.CouchDB.ctx,Json_type.t * Json_type.t option) Ohm.Run.t
+    -> (ctx,Ohm.Json.t * Ohm.Json.t option) Ohm.Run.t
 
   val all_lines :
        Source.t
     -> from:Key.t option
     -> count:int
-    -> (#Ohm.CouchDB.ctx,Key.t list * Key.t option) Ohm.Run.t
+    -> (ctx,Key.t list * Key.t option) Ohm.Run.t
 
 end
 
@@ -41,44 +44,44 @@ module Make : functor(T:TABULAR) -> sig
   module LineId : Ohm.CouchDB.ID
 
   type line = {
-    cells : Json_type.t list ;
+    cells : Ohm.Json.t list ;
     key   : key ;
     id    : LineId.t ;
     hint  : bool
   }
 
-  type pager = Json_type.t * LineId.t
+  type pager = Ohm.Json.t * LineId.t
 
   val set_list   : 
         ListId.t 
     ->  columns : column list
     ->  source : source
     ->  filter : evaluator option
-    ->  (#Ohm.CouchDB.ctx,unit) Ohm.Run.t
+    ->  (T.ctx,unit) Ohm.Run.t
 
   val set_columns : 
        ListId.t
     -> column list 
-    -> (#Ohm.CouchDB.ctx,unit) Ohm.Run.t
+    -> (T.ctx,unit) Ohm.Run.t
 
   val get_list :
        ListId.t 
-    -> (#Ohm.CouchDB.ctx, (column list * source * evaluator option) option) Ohm.Run.t
+    -> (T.ctx, (column list * source * evaluator option) option) Ohm.Run.t
 
   val check_list : 
        ListId.t
-    -> (#Ohm.CouchDB.ctx, [ `Unlocked | `LineLocked | `ColumnLocked ] option) Ohm.Run.t
+    -> (T.ctx, [ `Unlocked | `LineLocked | `ColumnLocked ] option) Ohm.Run.t
 
-  val update : key -> source -> (#Ohm.CouchDB.ctx, unit) Ohm.Run.t
+  val update : key -> source -> (T.ctx, unit) Ohm.Run.t
 
-  val update_all : key -> (#Ohm.CouchDB.ctx, unit) Ohm.Run.t
+  val update_all : key -> (T.ctx, unit) Ohm.Run.t
 
   val hint : 
        ListId.t
     -> key
     -> (    evaluator
-         -> (#Ohm.CouchDB.ctx as 'ctx, Json_type.t * Json_type.t option) Ohm.Run.t) 
-    -> ('ctx, unit) Ohm.Run.t
+         -> (T.ctx, Ohm.Json.t * Ohm.Json.t option) Ohm.Run.t) 
+    -> (T.ctx, unit) Ohm.Run.t
 
   val read :
        ListId.t
@@ -86,8 +89,8 @@ module Make : functor(T:TABULAR) -> sig
     -> start: pager option
     -> count: int
     -> descending: bool
-    -> (#Ohm.CouchDB.ctx, column list * line list * pager option) Ohm.Run.t
+    -> (T.ctx, column list * line list * pager option) Ohm.Run.t
 
-  val count : ListId.t -> (#Ohm.CouchDB.ctx,int) Ohm.Run.t    
+  val count : ListId.t -> (T.ctx,int) Ohm.Run.t    
 
 end
