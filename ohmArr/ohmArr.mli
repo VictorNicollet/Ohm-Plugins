@@ -23,7 +23,7 @@ module type SERVER = sig
 
   val delete   : room -> unit
 
-  val post     : room -> Json_type.t -> unit
+  val post     : room -> Ohm.Json.t -> unit
 
   val user_url : room -> user -> key -> url
  

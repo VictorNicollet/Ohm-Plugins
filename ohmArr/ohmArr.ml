@@ -52,8 +52,7 @@ module Connect = functor(Config:CONFIG) -> struct
       |  Http_client.Http_protocol error -> Util.log "Arr! local:%d/ : HTTP error : %s" Config.port (Printexc.to_string error) ; None
 
   let create room key = 
-    let json = Json_io.string_of_json ~compact:true 
-      (Json_type.Object [ "key", Json_type.String key ]) in
+    let json = Json.serialize (Json_type.Object [ "key", Json_type.String key ]) in
     let url  = local ^ Id.str room in
     let rec aux retries = 
       if retries = 0 then () else 
@@ -87,7 +86,7 @@ module Connect = functor(Config:CONFIG) -> struct
     let json = match message with 
       | Json_type.Object _ -> message
       | _ -> Json_type.Object [ "data", message ] in
-    let json_str = Json_io.string_of_json ~compact:true json in
+    let json_str = Json.serialize json in
     let url  = local ^ Id.str room in
     let rec aux retries = 
       if retries = 0 then () else begin
