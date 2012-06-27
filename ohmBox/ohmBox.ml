@@ -114,6 +114,12 @@ let reaction_endpoint reaction arg =
   let root = Json.String reaction.r_root in
   JsCode.Endpoint.of_js ~name:"ohmBox_endpoint" ~args:[ root ; name ; arg ] 
 
+let reaction_json reaction arg = 
+  let arg  = reaction.r_fmt.Fmt.to_json arg in
+  let name = Json.of_list Json.of_int reaction.r_name in
+  let root = Json.String reaction.r_root in
+  Json.Array [ root ; name ; arg ] 
+
 let reaction_js reaction arg = 
   let args = reaction.r_fmt.Fmt.to_json arg in
   Js.ohmBox_call ~url:reaction.r_root ~name:reaction.r_name ~args () 
