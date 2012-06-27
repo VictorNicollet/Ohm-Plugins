@@ -147,8 +147,9 @@ module Make = functor(Ctx:CTX) -> struct
     let! ctx = ohmctx Ctx.get in
     let  id, box, ctx = subbox ctx in
     match ctx.ctx_mode with 
-      | `Reaction (h :: _) when h = id -> 
+      | `Reaction (h :: t) when h = id -> 
 	(* If a reaction is to be found, it will be within the box. *)
+	let ctx = { ctx with ctx_mode = `Reaction t } in 
 	Run.edit_context (Ctx.set ctx) body
       | `Reaction _ -> 
         (* Looking for a reaction that cannot be within the box. *)
