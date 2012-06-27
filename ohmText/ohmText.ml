@@ -1,5 +1,7 @@
 (* Ohm is © 2012 Victor Nicollet *)
 
+module Format = OhmText_format
+
 let cut ?ellipsis length text = 
   let split = BatString.nsplit text " " in
   let out   = Buffer.create (length + (BatOption.default 0 (BatOption.map String.length ellipsis))) in
@@ -16,3 +18,15 @@ let cut ?ellipsis length text =
 		      end
   in
   accum 0 split
+
+let format ?(nl2br=false) ?(skip2p=false) ?(mailto=false) ?(url=false) text = 
+
+  let state = Format.({ nl2br ; skip2p ; mailto ; url }) in
+
+  let writer html = 
+    Ohm.Html.str "<p>" html ;
+    Format.format html state (Lexing.from_string text) ;
+    Ohm.Html.str "</p>" html 
+  in
+
+  Ohm.Html.to_html_string writer 
