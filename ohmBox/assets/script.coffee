@@ -138,14 +138,17 @@ class OhmBoxStack
     same = true
 
     l = Math.min oldP.length, newP.length
-    for i in [0..l-1]
+    for i in [0..l-2]
       same = oldP[i] is newP[i]
       break if !same
 
+    startsWith = (str,substr) -> 
+      str.substr(0,substr.length) is substr 
+
     if same 
-      if oldP.length < newP.length
+      if oldP.length < newP.length && startsWith oldP[l-1], newP[l-1]
         anim = animShiftRight
-      if oldP.length > newP.length 
+      if oldP.length > newP.length && startsWith newP[l-1], oldP[l-1]
         anim = animShiftLeft
 
     # Play it, continue after it is done
