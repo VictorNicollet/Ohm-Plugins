@@ -223,6 +223,8 @@ window.joy = (($) ->
 
     set: (v) ->
       do @$field.val(v || '').blur
+      if @$field.data('onSet')
+        @$field.data('onSet')(v)
 
     get: () ->
       @$field.val()
