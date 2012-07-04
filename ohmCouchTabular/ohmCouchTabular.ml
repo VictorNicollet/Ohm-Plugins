@@ -19,20 +19,25 @@ module type TABULAR = sig
   module LineDB : CouchDB.CONFIG
   module UniqDB : CouchDB.CONFIG
 
-  val background : (CouchDB.ctx,bool) Run.t -> unit 
+  type ctx 
+  val context : ctx -> CouchDB.ctx
+
+  val background : (ctx,bool) Run.t -> unit 
 
   val sources_of_evaluator : Evaluator.t -> Source.t list
-  val apply : Key.t -> Evaluator.t -> (#CouchDB.ctx,Json_type.t * Json_type.t option) Run.t
+  val apply : Key.t -> Evaluator.t -> (ctx,Json.t * Json.t option) Run.t
 
   val all_lines :
        Source.t
     -> from:Key.t option
     -> count:int
-    -> (#CouchDB.ctx,Key.t list * Key.t option) Run.t
+    -> (ctx,Key.t list * Key.t option) Run.t
 
 end
 
 module Make = functor(T:TABULAR) -> struct
+
+  let decay t = Run.edit_context T.context t 
 
   (* General type and module definitions *)
 
@@ -52,13 +57,13 @@ module Make = functor(T:TABULAR) -> struct
   module LineId : CouchDB.ID = Id
 
   type line = {
-    cells : Json_type.t list ;
+    cells : Json.t list ;
     key   : key ;
     id    : LineId.t ;
     hint  : bool
   }
 
-  type pager = Json_type.t * LineId.t
+  type pager = Json.t * LineId.t
 
   (* Grid-specific type definitions *)
       
@@ -87,7 +92,6 @@ module Make = functor(T:TABULAR) -> struct
 
   module LineData = struct
     module T = struct
-      module Json = Fmt.Json
       type json t = {
 	list    "l" : Id.t ;
 	version "v" : int ;
@@ -263,7 +267,7 @@ module Make = functor(T:TABULAR) -> struct
 
   module VersionView = CouchDB.DocView(struct
     module Key = Fmt.Make(struct
-      type json t = Id.t * int
+      type json t = (Id.t * int)
     end)
     module Value  = Fmt.Unit
     module Doc    = LineData
@@ -334,7 +338,7 @@ module Make = functor(T:TABULAR) -> struct
 
     Util.log "Update list = '%s' ; key = '%s' " (ListId.to_id lid |> Id.str) (Key.to_id key |> Id.str) ;
 
-    let! list      = ohm_req_or (return ()) $ ListTable.get lid in 
+    let! list      = ohm_req_or (return ()) $ decay (ListTable.get lid) in 
     let  version   = list.ListData.version in 
     let  evaluator = BatOption.default (T.apply key) evaluator in
     let  evals     = List.rev list.ListData.evals in
@@ -343,17 +347,18 @@ module Make = functor(T:TABULAR) -> struct
     let sorted, data = List.fold_left begin fun (sorted,data) (cell_data, cell_sort_opt) ->
       match cell_sort_opt with 
 	| Some cell_sort -> cell_sort :: sorted, cell_data :: data
-	| None           -> cell_data :: sorted, Json_type.Null :: data
+	| None           -> cell_data :: sorted, Json.Null :: data
     end ([],[]) applied in 
 
     let! visible = ohm begin 
       match list.ListData.filter with 
 	| None      -> return true
 	| Some eval -> let! json, _ = ohm $ evaluator eval in
-		       return (json = Json_type.Bool true)
+		       return (json = Json.Bool true)
     end in
 
-    save_at_key lid ~visible ~hint ~sorted ~data ~version key
+    decay 
+      (save_at_key lid ~visible ~hint ~sorted ~data ~version key)
     
   let batch_size = 10
 
@@ -382,7 +387,7 @@ module Make = functor(T:TABULAR) -> struct
 
   let add_lines lid key_opt = 
 
-    let! list   = ohm_req_or (return None) $ ListTable.get lid in 
+    let! list   = ohm_req_or (return None) $ decay (ListTable.get lid) in 
     let  source = list.ListData.source in
 
     let! add, next = ohm $ T.all_lines source ~from:key_opt ~count:batch_size in
@@ -394,7 +399,7 @@ module Make = functor(T:TABULAR) -> struct
       | Some key -> return $ Some (`Add (Some (Key.to_id key)))
 
   let process_update lid = function 
-    | `Remove version -> remove_lines_with_version lid version 
+    | `Remove version -> decay $ remove_lines_with_version lid version 
     | `At     id      -> let! () = ohm $ update_at_key lid (Key.of_id id) in return None
     | `Add    idopt   -> add_lines lid (BatOption.map Key.of_id idopt) 
  
@@ -403,15 +408,15 @@ module Make = functor(T:TABULAR) -> struct
     let! () = ohm $ return () in 
     
     (* Extract the next task from the data base *)
-    let! next = ohm $ ProcessingListView.doc_query 
+    let! next = ohm $ decay (ProcessingListView.doc_query 
       ~endkey:(Unix.gettimeofday ()) ~limit:1 ()
-    in
+    ) in
     
     let! next = req_or (return false) $ Util.first next in
     let  lid  = ListId.of_id (next # id) in 
     
     (* Determine what should be done, and lock the task. *)
-    let! what = ohm_req_or (return false) $ ListTable.transaction lid begin fun lid ->
+    let! what = ohm_req_or (return false) $ decay (ListTable.transaction lid begin fun lid ->
       let  abort = return (None, `keep) in
       let! list = ohm_req_or abort $ ListTable.get lid in
       if list.ListData.next > Unix.gettimeofday () then 
@@ -420,16 +425,16 @@ module Make = functor(T:TABULAR) -> struct
       else
 	let! task, lock = req_or abort $ start_processing list in
 	return (Some task, `put lock)
-    end in
+    end) in
     
     (* Perform the task and determine if something should be done next. *)    
     let! continue = ohm $ process_update lid what in
       
       (* Unlock the task. *)
-    let! () = ohm $ ListTable.transaction lid begin fun lid ->
+    let! () = ohm $ decay (ListTable.transaction lid begin fun lid ->
       let! list = ohm_req_or (return ((), `keep)) $ ListTable.get lid in 
       return ((), `put (finish_processing what continue list))
-    end in 
+    end) in 
     
     return true
 
@@ -438,14 +443,14 @@ module Make = functor(T:TABULAR) -> struct
   (* Publish the API *)
 
   let set_list lid ~columns ~source ~filter =
-    ListTable.transaction lid begin fun lid -> 
+    decay $ ListTable.transaction lid begin fun lid -> 
       let! current = ohm $ ListTable.get lid in 
       let  updated = update_or_create_list ~columns ~source ~filter current in
       return ((), `put updated)
     end 
 
   let set_columns lid columns = 
-    ListTable.transaction lid begin fun lid -> 
+    decay $ ListTable.transaction lid begin fun lid -> 
       let! current = ohm_req_or (return ((), `keep)) $ ListTable.get lid in 
       let  source  = current.ListData.source in
       let  filter  = current.ListData.filter in 
@@ -454,20 +459,20 @@ module Make = functor(T:TABULAR) -> struct
     end 
 
   let get_list lid = 
-    let! list = ohm_req_or (return None) $ ListTable.get lid in 
+    let! list = ohm_req_or (return None) $ decay (ListTable.get lid) in 
     return $ Some ListData.( List.map snd list.columns, list.source, list.filter ) 
 
   let check_list lid = 
-    let! list = ohm_req_or (return None) $ ListTable.get lid in
+    let! list = ohm_req_or (return None) $ decay (ListTable.get lid) in
     return $ Some (list_lock list)
 
   let update key source = 
 
-    let! lists = ohm $ BySourceListView.doc source in
+    let! lists = ohm $ decay (BySourceListView.doc source) in
  
     let schedule_list item =
       let lid = ListId.of_id (item # id) in
-      ListTable.transaction lid begin fun lid ->
+      decay $ ListTable.transaction lid begin fun lid ->
 	let! current = ohm $ ListTable.get lid in 
 	match current with 
 	  | None      -> return ((), `keep)
@@ -480,11 +485,11 @@ module Make = functor(T:TABULAR) -> struct
 
   let update_all key = 
 
-    let! lists = ohm $ KeyView.by_key (Key.to_id key) in
+    let! lists = ohm $ decay (KeyView.by_key (Key.to_id key)) in
     let  lists = List.map (#value |- ListId.of_id) lists in 
 
     let schedule_list lid =
-      ListTable.transaction lid begin fun lid ->
+      decay $ ListTable.transaction lid begin fun lid ->
 	let! current = ohm $ ListTable.get lid in 
 	match current with 
 	  | None      -> return ((), `keep)
@@ -501,20 +506,20 @@ module Make = functor(T:TABULAR) -> struct
 
   let read lid ~sort_column ~start ~count ~descending = 
 
-    let! the_list = ohm_req_or (return ([],[],None)) $ ListTable.get lid in 
+    let! the_list = ohm_req_or (return ([],[],None)) $ decay (ListTable.get lid) in 
     
     let permutation, columns = List.split the_list.ListData.columns in 
     
     let shuffle cells = 
-      List.map (fun i -> try List.nth cells i with _ -> Json_type.Null) permutation
+      List.map (fun i -> try List.nth cells i with _ -> Json.Null) permutation
     in
 
     let real_sort_column = try List.nth permutation sort_column with _ -> 0 in
 
     let key ?start lid sort = 
-      Json_type.Array (
+      Json.Array (
 	( Id.to_json (ListId.to_id lid) ) 
-	:: ( Json_type.Int sort )
+	:: ( Json.Int sort )
 	:: ( match start with None -> [] | Some json -> [json] ))
     in 
 
@@ -536,9 +541,9 @@ module Make = functor(T:TABULAR) -> struct
 
     let limit = count + 1 in
     
-    let! list = ohm $ SortedView.doc_query
+    let! list = ohm $ decay (SortedView.doc_query
       ~startkey ~endkey ?startid ~descending ~limit ()
-    in
+    )in
 
     let list, next = 
       try let first, following = BatList.split_at count list in
@@ -553,7 +558,7 @@ module Make = functor(T:TABULAR) -> struct
       let line item =
 	let cells = 
 	  try BatList.map2
-		(fun data sort -> if data = Json_type.Null then sort else data) 
+		(fun data sort -> if data = Json.Null then sort else data) 
 		(item # doc).LineData.cells 
 		(item # doc).LineData.sort
 	  with _ -> (item # doc).LineData.sort 
@@ -573,14 +578,14 @@ module Make = functor(T:TABULAR) -> struct
       match next with
 	| None      -> None
 	| Some item -> match item # key with 
-	    | Json_type.Array [_;_;key] -> Some (key, LineId.of_id (item # id))
+	    | Json.Array [_;_;key] -> Some (key, LineId.of_id (item # id))
 	    | _                         -> None
     in
 
     return (columns, list, next) 
 
   let count lid = 
-    let! count_opt = ohm $ LineCountView.reduce (ListId.to_id lid) in
+    let! count_opt = ohm $ decay (LineCountView.reduce (ListId.to_id lid)) in
     return $ BatOption.default 0 count_opt
 
 end
