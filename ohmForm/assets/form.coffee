@@ -9,10 +9,12 @@ window.joy = (($) ->
   execute = (ctx,$where,code) ->
     c = () ->
       @$ = $where
+      return this
     c.prototype = ctx
     $.each code, (i,e) ->
       f = eval ('('+e[0]+')');
-      f.apply ctx, e[1..]
+      ctx = new c()
+      f.apply(ctx, e[1..])
 
   lastid = Math.floor(Math.random()*65536) 
   gen = () ->
