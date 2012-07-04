@@ -454,6 +454,10 @@ window.joy = (($) ->
     root.render   $form
     root.set      init
 
+    $form.data 'ohmForm', 
+      setUrl: (u) -> 
+        url = u
+
     if typeof url is 'string'
       send = (data,callback) -> 
         $.ajax
