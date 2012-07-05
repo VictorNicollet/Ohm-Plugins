@@ -1,3 +1,4 @@
+
 (* Ohm is © 2011 Victor Nicollet *)
 
 open Ohm
@@ -316,6 +317,16 @@ module Make = functor(T:TABULAR) -> struct
                     emit([doc.l,parseInt(i),doc.s[i]],null)"
   end)
 
+  module SortedRevView = CouchDB.MapView(struct
+    module Key    = Fmt.Json
+    module Value  = Fmt.String
+    module Design = LineDesign
+    let name = "sort_rev"
+    let map  = "if (!doc.h) 
+                  for (var i in doc.s) 
+                    emit([doc.l,parseInt(i),doc.s[i]],doc._rev)"
+  end)
+
   (* Database-accessing implementation *)
 
   let save_at_key lid ~visible ~hint ~sorted ~data ~version key = 
@@ -543,7 +554,7 @@ module Make = functor(T:TABULAR) -> struct
     
     let! list = ohm $ decay (SortedView.doc_query
       ~startkey ~endkey ?startid ~descending ~limit ()
-    )in
+    ) in
 
     let list, next = 
       try let first, following = BatList.split_at count list in
@@ -583,6 +594,70 @@ module Make = functor(T:TABULAR) -> struct
     in
 
     return (columns, list, next) 
+
+  let read_summary lid ~sort_column ~count ~descending = 
+
+    let! the_list = ohm_req_or (return []) $ decay (ListTable.get lid) in 
+    
+    let permutation, _ = List.split the_list.ListData.columns in 
+    
+    let real_sort_column = try List.nth permutation sort_column with _ -> 0 in
+
+    let key sort = Json.Array [ Id.to_json (ListId.to_id lid) ; Json.Int sort ] in
+
+    let smallest = key real_sort_column in
+    let largest  = key (real_sort_column + 1) in
+   
+    let startkey, endkey = 
+      if descending then largest, smallest
+      else smallest, largest
+    in
+
+    let limit = count in
+    
+    let! list = ohm $ decay (SortedRevView.query
+      ~startkey ~endkey ~descending ~limit ()
+    ) in
+
+    return $ List.map (fun item -> LineId.of_id (item # id), item # value) list
+
+  let read_lines lid linids = 
+
+    let! the_list = ohm_req_or (return ((fun _ -> None),[])) $ decay (ListTable.get lid) in 
+    let  lid = ListId.to_id lid in 
+    
+    let permutation, columns = List.split the_list.ListData.columns in 
+    
+    let shuffle cells = 
+      List.map (fun i -> try List.nth cells i with _ -> Json.Null) permutation
+    in
+
+    let! list = ohm $ decay (Run.list_filter begin fun linid -> 
+
+      let! line = ohm_req_or (return None) $ LineTable.get linid in 
+
+      if line.LineData.list <> lid then return None else 
+
+	let cells = 
+	  try BatList.map2
+		(fun data sort -> if data = Json.Null then sort else data) 
+		line.LineData.cells 
+		line.LineData.sort
+	  with _ -> line.LineData.sort 
+	in
+	
+	return $ Some (linid, { 
+	  cells = shuffle cells ;
+	  key   = Key.of_id line.LineData.key ;
+	  id    = linid ;
+	  hint  = line.LineData.hint
+	}) 
+
+    end linids) in
+      
+    let get linid = try Some (List.assoc linid list) with Not_found -> None in
+
+    return (get, columns)
 
   let count lid = 
     let! count_opt = ohm $ decay (LineCountView.reduce (ListId.to_id lid)) in

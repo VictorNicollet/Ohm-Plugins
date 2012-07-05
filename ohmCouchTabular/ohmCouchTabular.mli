@@ -91,6 +91,18 @@ module Make : functor(T:TABULAR) -> sig
     -> descending: bool
     -> (T.ctx, column list * line list * pager option) Ohm.Run.t
 
+  val read_summary : 
+       ListId.t 
+    -> sort_column: int
+    -> count: int
+    -> descending: bool 
+    -> (T.ctx, (LineId.t * string) list) Ohm.Run.t
+
+  val read_lines : 
+       ListId.t
+    -> LineId.t list
+    -> (T.ctx, (LineId.t -> line option) * column list) Ohm.Run.t
+
   val count : ListId.t -> (T.ctx,int) Ohm.Run.t    
 
 end
