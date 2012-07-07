@@ -285,6 +285,57 @@ module Make = functor (Versioned:VERSIONED) -> struct
     (* We provide a value, so a value should be returned *)
     do_update ~id ~default:(Some init) ~diffs ~info () |> Run.map BatOption.get
 
+  let migrate manager name migrator = 
+
+    let db   = Versioned.DataDB.database in 
+
+    let process id = 
+
+      let! ctx = ohmctx identity in 
+      let  oid = Versioned.Id.of_id id in 
+      let! () = ohm $ Run.edit_context Versioned.couchDB (ObjectTable.transaction oid begin fun oid -> 
+	
+	let! original = ohm_req_or (return ((),`keep)) $ ObjectTable.get oid in 
+
+	Run.with_context ctx begin 
+
+	  let! initial = ohm_req_or (return ((),`keep)) $ migrator oid original # initial in 
+	  
+	  let () = Util.log "Migrate : %s : %s/%s" name db (Id.to_string id) in
+	  
+	  let! versions = ohm $ get_versions oid in
+	  
+	  let! current        = ohm $ apply_versions versions oid initial in
+	  let! reflected      = ohm $ Versioned.reflect oid current in
+	  
+	  let time = List.fold_left (fun t (_,v) -> max (v # time) t) 0.0 versions in 
+	  
+	  let obj = object
+	    method initial   = initial
+	    method current   = current
+	    method reflected = reflected
+	    method time      = time
+	  end in 
+
+	  return ((), `put obj)
+
+	end 
+      end) in
+
+      return () 
+    in
+
+    let source idopt = 
+      Run.edit_context Versioned.couchDB begin
+	let! list, next = ohm $ ObjectTable.all_ids ~count:10 (BatOption.map Versioned.Id.of_id idopt) in
+	return (List.map Versioned.Id.to_id list, BatOption.map Versioned.Id.to_id next)
+      end
+    in
+		 
+    let task = Async.Convenience.foreach manager name Id.fmt source process in
+
+    task 
+
   let obliterate oid = 
     Run.edit_context Versioned.couchDB begin
       

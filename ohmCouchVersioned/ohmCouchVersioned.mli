@@ -153,6 +153,28 @@ module Make : functor (Versioned:VERSIONED) -> sig
       and is not expected to find much use in typical usage patterns. *)
   val obliterate : Id.t -> (Versioned.ctx, unit) Ohm.Run.t
 
+  (** Migrate objects to a new storage strategy. This allows the creation of an async 
+      process that looks at all objects in turn, and applies a function to their 
+      initial data, then causes a re-processing. 
+      
+      If the migrator function returns no data, the object is not migrated in order to 
+      save time. 
+
+      {[
+let migrator id data = return data
+
+let task = 
+  let task, define = O.async # declare "migrate" Id.fmt
+  let () = define (Versioned.migrate migrator task) in
+  fun () -> task Id.smallest
+      ]}
+  *)
+  val migrate :
+        Versioned.ctx Ohm.Async.manager
+    ->  string
+    -> (Id.t -> Data.t -> (Versioned.ctx,Data.t option) Ohm.Run.t)
+    -> (Versioned.ctx,unit) Ohm.Async.task 
+
   (** Signals sent by this module. *)
   module Signals : sig
 
