@@ -61,6 +61,7 @@ class OhmBoxStack
       # We're loading an unknown page, so load it before deciding.
       # All metadata from server is kept and used. 
       @fetch url, null, (data) => 
+        return call data.code unless "parents" of data
         box = {}
         box.$  = $('<div/>')
         box.$c = $('<div/>').append(box.$).css
@@ -68,7 +69,7 @@ class OhmBoxStack
           float: 'left'
           overflow: 'hidden' 
         box.root = { $: box.$ } 
-        box.re = new RegExp('^' + data.prefix)
+        box.re = new RegExp('^' + data.prefix)        
         box.code = () => 
           @box = box
           call data.code   
