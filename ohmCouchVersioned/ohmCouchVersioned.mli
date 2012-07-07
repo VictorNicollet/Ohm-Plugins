@@ -170,7 +170,7 @@ let task =
       ]}
   *)
   val migrate :
-        Versioned.ctx Ohm.Async.manager
+        Versioned.ctx # Ohm.Async.manager
     ->  string
     -> (Id.t -> Data.t -> (Versioned.ctx,Data.t option) Ohm.Run.t)
     -> (Versioned.ctx,unit) Ohm.Async.task 
