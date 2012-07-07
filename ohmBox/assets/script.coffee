@@ -69,9 +69,10 @@ class OhmBoxStack
           overflow: 'hidden' 
         box.root = { $: box.$ } 
         box.re = new RegExp('^' + data.prefix)
+        box.code = () => 
+          @box = box
+          call data.code   
         @add url, box
-        @box = box
-        call data.code   
         data.parents.push url 
         @replace box, data.parents
 
@@ -117,10 +118,12 @@ class OhmBoxStack
     animReplace = (callback) -> 
       do oldB.$c.hide if oldB
       do newB.$c.show
+      do newB.code
       callback.call @
 
     animShiftRight = (callback) -> 
       oldB.$c.after newB.$c.show() 
+      do newB.code
       @$l.animate { left: (-@w) + 'px' }, 'fast', =>
         do oldB.$c.hide if oldB
         @$l.css { left: 0 } 
@@ -128,6 +131,7 @@ class OhmBoxStack
 
     animShiftLeft = (callback) -> 
       oldB.$c.before newB.$c.show()
+      do newB.code
       @$l.css { left: (-@w)+'px' } 
       @$l.animate { left: 0 }, 'fast', => 
         do oldB.$c.hide if oldB
