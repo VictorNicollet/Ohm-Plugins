@@ -227,6 +227,8 @@ window.joy = (($) ->
         @$field.data('onSet')(v)
 
     get: () ->
+      if @$field.data('onGet')
+        @$field.data('onGet')()
       @$field.val()
 
     remove: () ->
