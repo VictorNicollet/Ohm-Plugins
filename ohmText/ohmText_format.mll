@@ -44,7 +44,7 @@ rule format acc state = parse
 	| "www." ['A'-'Z' '0'-'9' 'a'-'z' '.' '-' '_' '/'] +) as url
       { if state.url then (
 	  Ohm.Html.str "<a href=\"" acc ;
-	  Ohm.Html.str (if BatString.starts_with "www" url then "http://" else "") acc ;
+	  Ohm.Html.str (if BatString.starts_with url "www" then "http://" else "") acc ;
 	  Ohm.Html.esc url acc ;
 	  Ohm.Html.str "\" target=\"_blank\">" acc ;
 	  Ohm.Html.esc url acc ;
