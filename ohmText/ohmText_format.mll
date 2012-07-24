@@ -54,7 +54,7 @@ rule format acc state = parse
 	) ;
 	format acc state lexbuf
       }
-  | [^'A'-'Z' '0'-'9' 'a'-'z'] + as s 
+  | [^'A'-'Z' '0'-'9' 'a'-'z' '\n'] + as s 
       { Ohm.Html.esc s acc ;
 	format acc state lexbuf } 
   | eof { () } 
