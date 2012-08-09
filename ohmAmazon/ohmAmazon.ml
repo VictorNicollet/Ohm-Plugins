@@ -214,7 +214,7 @@ module S3 = functor(Account:ACCOUNT) -> struct
     with Not_found -> None
 
   let qsa_auth ~bucket ~key ~duration = 
-    let expires = string_of_int (duration + int_of_float (Unix.gettimeofday ())) in
+    let expires = Printf.sprintf "%u" (duration + int_of_float (Unix.gettimeofday ())) in
     let stringToSign = "GET\n\n\n"^expires^"\n/"^bucket^"/"^key in
     let sign = sign (stringToSign) in
     let encoded_sign = BatString.replace_chars
