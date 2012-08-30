@@ -19,6 +19,7 @@ module type EXPORT = sig
   val create : ?size:int -> ?init:whole -> unit -> (#CouchDB.ctx,id) Run.t
   val add : id -> ?steps:int -> piece list -> (#CouchDB.ctx,unit) Run.t	
   val finish : id -> (#CouchDB.ctx,unit) Run.t
+  val finished : id -> (#Ohm.CouchDB.ctx,bool option) Ohm.Run.t
   val progress : id -> (#CouchDB.ctx,(int * int) option) Run.t
   val delete : id -> (#CouchDB.ctx,unit) Run.t
   val download : id -> (#CouchDB.ctx,whole option) Run.t
@@ -136,6 +137,9 @@ struct
 
   let delete id = 
     Run.map ignore MyTable.(transaction id remove) 
+
+  let finished id = 
+    Run.map (BatOption.map (#finished)) (MyTable.get id) 
 
   let is_finished data = 
     if data # finished then Some (data # data) else None

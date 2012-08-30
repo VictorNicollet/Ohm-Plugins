@@ -63,6 +63,11 @@ module type EXPORT = sig
   *)
   val finish : id -> (#Ohm.CouchDB.ctx,unit) Ohm.Run.t
 
+  (** Determine whether the object is finished. No value is returned if 
+      the object is missing. 
+  *)
+  val finished : id -> (#Ohm.CouchDB.ctx,bool option) Ohm.Run.t
+
   (** Return the current progress of an object. If the object was not
       created with a total size, or if the object does not exist, 
       then nothing is returned. If the object was marked as finished, 
