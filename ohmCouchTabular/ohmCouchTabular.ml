@@ -342,8 +342,7 @@ module Make = functor(T:TABULAR) -> struct
       hint    = hint
     }) in
 
-    let! _ = ohm $ LineTable.transaction (LineId.of_id id) (LineTable.insert line) in
-    return ()
+    LineTable.set (LineId.of_id id) line
 
   let update_at_key lid ?(hint=false) ?evaluator key = 
 
@@ -383,13 +382,9 @@ module Make = functor(T:TABULAR) -> struct
 
     let remove item = 
       let id = LineId.of_id (item # id) in
-      let checked_remove id = 
-	(* Check whether the version is still the one to be removed! 
-	   Maybe another process came around and updated the line to another version. *)
-	let! line = ohm_req_or (return ((),`keep)) $ LineTable.get id in
-	if line.LineData.version <> version then return ((),`keep) else return ((), `delete)
-      in
-      LineTable.transaction id checked_remove
+      (* Check whether the version is still the one to be removed! 
+	 Maybe another process came around and updated the line to another version. *)      
+      LineTable.delete_if id (fun line -> line.LineData.version = version) 
     in
     
     let! _ = ohm $ Run.list_map remove sample in
@@ -427,22 +422,27 @@ module Make = functor(T:TABULAR) -> struct
     let  lid  = ListId.of_id (next # id) in 
     
     (* Determine what should be done, and lock the task. *)
-    let! what = ohm_req_or (return false) $ decay (ListTable.transaction lid begin fun lid ->
-      let  abort = return (None, `keep) in
-      let! list = ohm_req_or abort $ ListTable.get lid in
-      if list.ListData.next > Unix.gettimeofday () then 
+    let! what = ohm_req_or (return false) $ decay 
+      (ListTable.Raw.transaction lid begin fun lid ->
+
+	let  abort = return (None, `keep) in
+	let! list = ohm_req_or abort $ ListTable.get lid in
+
+	if list.ListData.next > Unix.gettimeofday () then 
 	(* Concurrent access : abort. *)
-	abort
-      else
-	let! task, lock = req_or abort $ start_processing list in
-	return (Some task, `put lock)
-    end) in
+	  abort
+	else
+	  let! task, lock = req_or abort $ start_processing list in
+	  return (Some task, `put lock)
+
+      end) 
+    in
     
     (* Perform the task and determine if something should be done next. *)    
     let! continue = ohm $ process_update lid what in
       
       (* Unlock the task. *)
-    let! () = ohm $ decay (ListTable.transaction lid begin fun lid ->
+    let! () = ohm $ decay (ListTable.Raw.transaction lid begin fun lid ->
       let! list = ohm_req_or (return ((), `keep)) $ ListTable.get lid in 
       return ((), `put (finish_processing what continue list))
     end) in 
@@ -454,19 +454,15 @@ module Make = functor(T:TABULAR) -> struct
   (* Publish the API *)
 
   let set_list lid ~columns ~source ~filter =
-    decay $ ListTable.transaction lid begin fun lid -> 
-      let! current = ohm $ ListTable.get lid in 
-      let  updated = update_or_create_list ~columns ~source ~filter current in
-      return ((), `put updated)
+    decay $ ListTable.replace lid begin fun current ->
+      update_or_create_list ~columns ~source ~filter current
     end 
 
   let set_columns lid columns = 
-    decay $ ListTable.transaction lid begin fun lid -> 
-      let! current = ohm_req_or (return ((), `keep)) $ ListTable.get lid in 
+    decay $ ListTable.update lid begin fun current ->
       let  source  = current.ListData.source in
       let  filter  = current.ListData.filter in 
-      let  updated = update_or_create_list ~columns ~source ~filter (Some current) in
-      return ((), `put updated)
+      update_or_create_list ~columns ~source ~filter (Some current)
     end 
 
   let get_list lid = 
@@ -483,16 +479,13 @@ module Make = functor(T:TABULAR) -> struct
  
     let schedule_list item =
       let lid = ListId.of_id (item # id) in
-      decay $ ListTable.transaction lid begin fun lid ->
-	let! current = ohm $ ListTable.get lid in 
-	match current with 
-	  | None      -> return ((), `keep)
-	  | Some list -> return ((), `put (schedule_update_at key list)) 
+      decay $ ListTable.transact lid begin function
+	| None      -> return ((), `keep)
+	| Some list -> return ((), `put (schedule_update_at key list)) 
       end
     in
 
-    let! _ = ohm $ Run.list_map schedule_list lists in
-    return ()
+    Run.list_iter schedule_list lists 
 
   let update_all key = 
 
@@ -500,18 +493,14 @@ module Make = functor(T:TABULAR) -> struct
     let  lists = List.map (#value |- ListId.of_id) lists in 
 
     let schedule_list lid =
-      decay $ ListTable.transaction lid begin fun lid ->
-	let! current = ohm $ ListTable.get lid in 
-	match current with 
-	  | None      -> return ((), `keep)
-	  | Some list -> return ((), `put (schedule_update_at key list)) 
+      decay $ ListTable.transact lid begin function
+	| None      -> return ((), `keep)
+	| Some list -> return ((), `put (schedule_update_at key list)) 
       end
     in
 
-    let! _ = ohm $ Run.list_map schedule_list lists in
-    return ()
+    Run.list_iter schedule_list lists
     
-
   let hint lid key evaluator = 
     update_at_key lid ~hint:true ~evaluator key 
 

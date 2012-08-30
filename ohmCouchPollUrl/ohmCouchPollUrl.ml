@@ -68,7 +68,6 @@ module Make = functor(Config:CONFIG) -> struct
   (* Minor operations on the metadata *)
 
   let poll ~delay source = 
-    let id = Id.gen () in 
     let info = PollInfo.({
       fetched = 0.0 ;
       wait    = delay ;
@@ -77,21 +76,16 @@ module Make = functor(Config:CONFIG) -> struct
       gc      = 0 ;
       errors  = 0 ;
     }) in
-    let! _ = ohm $ Run.edit_context Config.couchDB 
-      (InfoTable.transaction id (InfoTable.insert info)) in
-    return id
+    Run.edit_context Config.couchDB 
+      (InfoTable.create info)
 
   let disable id = 
-    let update info = PollInfo.({ info with gc = 999 }) in
-    let! _ = ohm $ Run.edit_context Config.couchDB 
-      (InfoTable.transaction id (InfoTable.update update)) in
-    return () 
+    Run.edit_context Config.couchDB 
+      (InfoTable.update id (fun info -> PollInfo.({ info with gc = 999 }))) 
 
   let insist id = 
-    let update info = PollInfo.({ info with fetched = 0.0 }) in
-    let! _ = ohm $ Run.edit_context Config.couchDB
-      (InfoTable.transaction id (InfoTable.update update)) in
-    return () 
+    Run.edit_context Config.couchDB
+      (InfoTable.update id (fun info -> PollInfo.({ info with fetched = 0.0 })))
 
   let get id = 
     let! data = ohm_req_or (return None) $ 
@@ -124,9 +118,8 @@ module Make = functor(Config:CONFIG) -> struct
 	in
 	if info.PollInfo.digest = digest then return (`keep,digest) else
 	  let  content = Lazy.force lazy_content in 
-	  let  insert  = ContentData.({content}) in
-	  let! _    = ohm $ Run.edit_context Config.couchDB
-	    (ContentTable.transaction id (ContentTable.insert insert)) in
+	  let! () = ohm $ Run.edit_context Config.couchDB
+	    (ContentTable.set id ContentData.({content})) in
 	  let! keep = ohm $ Signals.change_call (id,info.PollInfo.source,content) in 
 	  return begin 
 	    if keep then `keep, digest else ( 
@@ -147,9 +140,8 @@ module Make = functor(Config:CONFIG) -> struct
 
     (* "lock" the task to avoid multiple processing *)
     let  fetched = Unix.gettimeofday () in
-    let  update info = PollInfo.({ info with fetched }) in
-    let! _ = ohm $ Run.edit_context Config.couchDB
-      (InfoTable.transaction id (InfoTable.update update)) in
+    let! () = ohm $ Run.edit_context Config.couchDB
+      (InfoTable.update id (fun info -> PollInfo.({ info with fetched }))) in
 
     (* Perform the processing *)
     let! status, digest = ohm $ download id info in
@@ -163,8 +155,8 @@ module Make = functor(Config:CONFIG) -> struct
       gc     = (1 + info.gc) * gc ;
       errors = (1 + info.errors) * err
     }) in
-    let! _ = ohm $ Run.edit_context Config.couchDB
-      (InfoTable.transaction id (InfoTable.update update)) in
+    let! () = ohm $ Run.edit_context Config.couchDB
+      (InfoTable.update id update) in
 
     return None
     

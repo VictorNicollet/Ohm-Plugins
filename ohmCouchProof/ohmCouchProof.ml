@@ -44,18 +44,16 @@ module Make = functor(Db:CouchDB.DATABASE) -> struct
     type json t = < key : string >
   end)
     
-  module MyTable = CouchDB.Table(Db)(Id)(Key)
+  module Tbl = CouchDB.Table(Db)(Id)(Key)
 
   let id = Id.of_string "key"
 
   let key = 
     Run.eval (new CouchDB.init_ctx) begin
-      let! found = ohm $ MyTable.get id in
+      let! found = ohm $ Tbl.get id in
       match found with Some found -> return (found # key) | None -> 
 	let key = generate () in
-	let! _ = ohm $ MyTable.transaction id 
-	  (MyTable.insert (object method key = key end)) 
-	in
+	let! () = ohm $ Tbl.set id (object method key = key end) in
 	return key 
     end
 

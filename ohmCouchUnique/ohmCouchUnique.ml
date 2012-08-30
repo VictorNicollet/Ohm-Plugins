@@ -35,14 +35,14 @@ module Make = functor (DB:CouchDB.DATABASE) -> struct
   let get value = 
     let id = Id.gen () in 
     let fresh = lazy (object method id = id end) in 
-    MyTable.transaction value (MyTable.ensure fresh) |> Run.map id_of 
+    Run.map id_of (MyTable.ensure value fresh)
 
   let remove value =
-    MyTable.transaction value MyTable.remove |> Run.map ignore
+    MyTable.delete value 
 	
   let remove_atomic value current_id = 
     let has_id uniq = uniq # id = current_id in
-    MyTable.transaction value (MyTable.remove_if has_id) |> Run.map ignore
+    MyTable.delete_if value has_id
 
   module Design = struct
     module Database = DB
@@ -68,7 +68,7 @@ module Make = functor (DB:CouchDB.DATABASE) -> struct
 	| None   -> return (id, `put (object method id = id end))
 	| Some x -> return (id_of x, `keep) 
     in
-    MyTable.transaction value update
+    MyTable.Raw.transaction value update
 
 end
 

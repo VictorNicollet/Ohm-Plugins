@@ -86,7 +86,7 @@ struct
   end)
 
   module MyDB = CouchDB.Database(Db)
-  module MyTable = CouchDB.Table(MyDB)(MyId)(Data) 
+  module Tbl = CouchDB.Table(MyDB)(MyId)(Data) 
 
   module Design = struct
     module Database = MyDB
@@ -95,7 +95,7 @@ struct
 
   let create ?size ?(init=Config.empty) () = 
     let! time = ohmctx (#time) in
-    MyTable.create (object
+    Tbl.create (object
       method size = BatOption.map (fun s -> (0,s)) size
       method data = init
       method time = time
@@ -114,7 +114,7 @@ struct
       method finished = old # finished
       method size = BatOption.map (fun (n,s) -> n + steps, s) (old # size)
     end in
-    Run.map ignore (MyTable.transaction id (MyTable.update f))
+    Tbl.update id f
 
   let finish id = 
     let! time = ohmctx (#time) in
@@ -124,7 +124,7 @@ struct
       method data = old # data
       method size = old # size
     end in
-    Run.map ignore (MyTable.transaction id (MyTable.update f))
+    Tbl.update id f
 
   let compute_progress data =
     match data # size with
@@ -133,28 +133,27 @@ struct
       | None -> None	
 
   let progress id = 
-    Run.map (BatOption.bind compute_progress) (MyTable.get id)
+    Run.map (BatOption.bind compute_progress) (Tbl.get id)
 
-  let delete id = 
-    Run.map ignore MyTable.(transaction id remove) 
+  let delete id = Tbl.delete id 
 
   let finished id = 
-    Run.map (BatOption.map (#finished)) (MyTable.get id) 
+    Tbl.using id (#finished)
 
-  let is_finished data = 
+  let if_finished data = 
     if data # finished then Some (data # data) else None
 
   let download id = 
-    Run.map (BatOption.bind is_finished) (MyTable.get id) 
+    Run.map (BatOption.bind if_finished) (Tbl.get id) 
 
   let get_state = function 
     | None -> `Missing 
-    | Some data -> match is_finished data with 
+    | Some data -> match if_finished data with 
 	| Some whole -> `Complete whole
 	| None -> `Incomplete (compute_progress data) 
 
   let state id = 
-    Run.map get_state (MyTable.get id) 
+    Tbl.get id |> Run.map get_state
 
   module LastTouchedView = CouchDB.MapView(struct
     module Key = Fmt.Float
