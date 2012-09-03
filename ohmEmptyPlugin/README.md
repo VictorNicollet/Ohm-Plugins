@@ -1,0 +1,1 @@
+This sample plugin provides the boilerplate required for creating a brand new plugin. 
