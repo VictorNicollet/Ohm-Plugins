@@ -38,7 +38,8 @@ let extract file =
       let lexer = 
 	if BatString.ends_with file ".htm" then Lex_html.lex else
 	  if BatString.ends_with file ".html" then Lex_html.lex else 	    
-	    Lex_verbatim.lex
+	    (Printf.printf "-- Warning : unknown format %s\n" file ;
+	     Lex_verbatim.lex )
       in
       
       let lexbuf = Lexing.from_channel channel in 
