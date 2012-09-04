@@ -37,7 +37,7 @@ let extract file =
       
       let lexer = 
 	if BatString.ends_with file ".htm" then Lex_html.lex else
-	  if BatString.ends_with file ".html" then Lex_html.lex else 
+	  if BatString.ends_with file ".html" then Lex_html.lex else 	    
 	    Lex_verbatim.lex
       in
       
@@ -84,7 +84,13 @@ let rec directory path =
 	  exit (-1)
       in
 
-      let valid = List.filter (fun str -> not (BatString.starts_with str ".")) contents in
+      let valid = 
+	List.filter (fun str -> 
+	  not (BatString.starts_with str ".")
+	  && not (BatString.ends_with str "~") 
+	  && not (BatString.starts_with str "#")
+	) contents
+      in
 
       List.concat (List.map (Filename.concat path |- directory) valid)
 
