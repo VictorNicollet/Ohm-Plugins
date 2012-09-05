@@ -116,8 +116,8 @@ let generate ?name root =
 
     let path = 
       if BatString.starts_with path "/"
-      then path
-      else "/" ^ path 
+      then BatString.tail path 1
+      else path 
     in
 
     path, contents
