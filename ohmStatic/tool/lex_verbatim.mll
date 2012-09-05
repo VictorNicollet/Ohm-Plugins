@@ -7,6 +7,6 @@ rule lex hub buf = parse
 
 | '<' [^ '{'] as s { buf # raw s ; lex hub buf lexbuf }
 | '}' [^ '>'] as s { buf # raw s ; lex hub buf lexbuf }
-| [^ '}' '<' ] * as s { buf # raw s ; lex hub buf lexbuf }
+| [^ '}' '<' ] + as s { buf # raw s ; lex hub buf lexbuf }
 | [ '<' '}' ] as c { buf # raw (String.make 1 c) ; lex hub buf lexbuf }
 | eof { () }

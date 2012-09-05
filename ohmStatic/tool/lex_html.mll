@@ -8,7 +8,7 @@ rule lex hub buf = parse
 | [ '\t' ' ' '\n' '\r' ] + { buf # raw " " ; lex hub buf lexbuf }
 | '<' [^ '{'] as s { buf # raw s ; lex hub buf lexbuf }
 | '}' [^ '>'] as s { buf # raw s ; lex hub buf lexbuf }
-| [^ '\t' ' ' '\n' '\r' '}' '<' ] * as s { buf # raw s ; lex hub buf lexbuf }
+| [^ '\t' ' ' '\n' '\r' '}' '<' ] + as s { buf # raw s ; lex hub buf lexbuf }
 | [ '<' '}' ] as c { buf # raw (String.make 1 c) ; lex hub buf lexbuf }
 | ("<pre" | "<textarea") as s { buf # raw s ; verblex hub buf lexbuf }
 | "<!--" ( [^ '-'] | "-" [^ '-'] ) * "-->" { lex hub buf lexbuf }
@@ -22,7 +22,7 @@ and verblex hub buf = parse
   | ("</pre>"|"</textarea>") as s { buf # raw s ; lex hub buf lexbuf }
   | '<' [^ '{' '/' ] as s { buf # raw s ; verblex hub buf lexbuf }
   | '}' [^ '>'] as s { buf # raw s ; verblex hub buf lexbuf }
-  | [^ '}' '<' ] * as s { buf # raw s ; verblex hub buf lexbuf }
+  | [^ '}' '<' ] + as s { buf # raw s ; verblex hub buf lexbuf }
   | [ '/' '<' '}' ] as c { buf # raw (String.make 1 c) ; verblex hub buf lexbuf }
   | "<!--" ([^ '-'] | "-" [^ '-']) * "-->" { verblex hub buf lexbuf }
   | eof { () }
