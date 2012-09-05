@@ -131,7 +131,8 @@ let generate ?name root =
     Buffer.add_string mlbuf "let pages = BatPMap.of_enum (BatList.enum [\n" ;
     
     List.iter (fun (path,contents) ->
-      Buffer.add_string mlbuf (Printf.sprintf " %S, Ohm.Html.str %S ;\n" path contents) ;
+      Buffer.add_string mlbuf 
+	(Printf.sprintf " %S, `Page (fun _ -> Ohm.Html.str %S) ;\n" path contents) ;
     ) clean ;
     
     Buffer.add_string mlbuf "])\n\n" ;    
@@ -139,7 +140,7 @@ let generate ?name root =
   in
 
   let mlifile = 
-    "val pages : (string,Ohm.Html.writer) BatPMap.t\n"
+    "val pages : OhmStatic.site\n"
   in
 
   let name = BatOption.default (String.lowercase (Filename.basename root)) name in 
