@@ -123,7 +123,6 @@ let generate ?name root =
 
   ) list in 
  
-
   let mlfile = 
     let mlbuf = Buffer.create 1024 in
     
@@ -131,8 +130,13 @@ let generate ?name root =
     Buffer.add_string mlbuf "let pages = BatPMap.of_enum (BatList.enum [\n" ;
     
     List.iter (fun (path,contents) ->
-      Buffer.add_string mlbuf 
-	(Printf.sprintf " %S, `Page (fun _ -> Ohm.Html.str %S) ;\n" path contents) ;
+      Buffer.add_string mlbuf (Printf.sprintf "  %S, `Page begin fun url html -> \n" path) ;
+      List.iter (function 
+	| `RAW s -> Buffer.add_string mlbuf 
+	  (Printf.sprintf "    Ohm.Html.str %S html ;\n" s) 
+	| `URL s -> Buffer.add_string mlbuf 
+	  (Printf.sprintf "    Ohm.Html.esc (url %S) html ;\n" s)) contents ;
+      Buffer.add_string mlbuf "  end ;\n" 
     ) clean ;
     
     Buffer.add_string mlbuf "])\n\n" ;    

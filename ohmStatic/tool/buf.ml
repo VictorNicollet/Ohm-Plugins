@@ -2,7 +2,15 @@
 
 class t = object (self)
 
-  val buffer = Buffer.create 1024
+  val mutable buffer  = Buffer.create 1024 
+  val mutable content = ([] : [`BUF of Buffer.t|`URL of string] list) 
+
+  method url k = 
+    if Buffer.length buffer > 0 then (
+      content <- `BUF buffer :: content ;
+      buffer  <- Buffer.create 1024
+    ) ;
+    content <- `URL k :: content 
 
   method raw s = 
     Buffer.add_string buffer s
@@ -32,6 +40,13 @@ class t = object (self)
     self # raw (String.lowercase tag) ;
     self # raw ">" 
 
-  method contents = Buffer.contents buffer
+  method contents : [ `URL of string | `RAW of string ] list = 
+
+    if Buffer.length buffer > 0 then 
+      content <- `BUF buffer :: content ;
+
+    List.rev_map (function 
+      | `URL u -> `URL u 
+      | `BUF b -> `RAW (Buffer.contents b)) content 
 
 end
