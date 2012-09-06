@@ -36,7 +36,7 @@ let canonical = function
   | s -> s
 
 let default_render _ ?css ?js ?head ?favicon ?body_classes ~title writer = 
-  Html.print_page_ctx ?css ?js ?head ?favicon ?body_classes ~title writer 
+  return (O.page ?css ?js ?head ?favicon ?body_classes ~title writer)
 
 let export ?(rename=canonical) ?(render=default_render) ?(public="/public/") ~server ~title site = 
 
