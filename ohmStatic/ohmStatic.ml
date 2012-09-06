@@ -17,14 +17,35 @@ type page = <
 type item = [ `Page of page | `File ] 
 type site = (string,item) BatPMap.t
 
-let export ?(rename=identity) ?(render=Html.print_page_ctx) ?(public="/public/") ~server ~title site = 
+let ends s t = BatString.ends_with s t
+
+let clip t s = 
+  if ends s t then 
+    BatString.head s (String.length s - String.length t) 
+  else
+    s
+
+let canonical = function 
+  | "index.htm" | "index.html" | "index.md" -> ""
+  | s when ends s "/index.html" -> clip "/index.html" s
+  | s when ends s "/index.htm"  -> clip "/index.htm"  s
+  | s when ends s "/index.md"   -> clip "/index.md"   s
+  | s when ends s ".htm"  -> clip ".htm"  s
+  | s when ends s ".html" -> clip ".html" s
+  | s when ends s ".md"   -> clip ".md"   s
+  | s -> s
+
+let default_render _ ?css ?js ?head ?favicon ?body_classes ~title writer = 
+  Html.print_page_ctx ?css ?js ?head ?favicon ?body_classes ~title writer 
+
+let export ?(rename=canonical) ?(render=default_render) ?(public="/public/") ~server ~title site = 
 
   let endpoints, definitions = 
     BatPMap.foldi begin fun key item (endpoints, definitions) -> 
       match item with `File -> (endpoints,definitions) | `Page page ->
 	let endpoint, define = Action.declare server (rename key) Action.Args.none in
 	BatPMap.add key endpoint endpoints, 
-	(define,page) :: definitions
+	(define,page,key) :: definitions
     end site (BatPMap.empty, [])
   in
 
@@ -33,7 +54,7 @@ let export ?(rename=identity) ?(render=Html.print_page_ctx) ?(public="/public/")
     with Not_found -> public ^ key 
   in
 
-  List.iter begin fun (define,page) ->
+  List.iter begin fun (define,page,key) ->
 
     define begin fun req res ->
 
@@ -45,7 +66,7 @@ let export ?(rename=identity) ?(render=Html.print_page_ctx) ?(public="/public/")
       let bcls   = page # bcls in
       let title  = BatOption.default title (page # title) in
 
-      let! page = ohm $ render ~css ~js ~head ~body_classes:bcls ~title body in
+      let! page = ohm $ render key ?favicon:None ~css ~js ~head ~body_classes:bcls ~title body in
       return $ Action.page page res 
 
     end 

@@ -38,9 +38,14 @@ type item = [ `Page of page | `File ]
 *)
 type site = (string,item) BatPMap.t
 
+(** Canonical transformation of an URL : remove [.md], [.htm] and [.html] extensions, 
+    then turn [foo/index] into [foo] (and ["index"] into [""]). 
+*)
+val canonical : key -> string
+
 (** Export a static site. 
     @param rename A function that provides the path of each item. By default, 
-    the item's key is used as its path. 
+    {!val:canonical} is applied to the key.
     @param server The server on which the site should run. 
     @param title The default title to be used, if no title is provided by the page. 
     @param render The function which is used to render the item. By default, 
@@ -50,7 +55,7 @@ type site = (string,item) BatPMap.t
 *)
 val export : 
      ?rename:renaming
-  -> ?render:(unit Ohm.Html.ctxrenderer)
+  -> ?render:(key -> unit Ohm.Html.ctxrenderer)
   -> ?public:string
   ->  server:('s Ohm.Action.server)
   ->  title:string
