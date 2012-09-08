@@ -14,7 +14,7 @@ rule lex hub buf = parse
       buf # raw "</span>" ;  
       lex hub buf lexbuf }
 
-| ("open" | "module" | "struct" | "in" | "let" | "let!" 
+| ("open" | "module" | "struct" | "in" | "let" | "let!" | "class"
       | "type" | "end" | "begin" | "and" | "rec" | "json"
       | "object" | "sig" | "functor") as s
     { buf # raw "<span class=keyword>" ;
@@ -28,8 +28,8 @@ rule lex hub buf = parse
       buf # raw "</span>" ;
       lex hub buf lexbuf }
 
-| ("function" | "fun" | "match" | "with" | "ref" | "try" 
-      | "lazy" | "as" | "val" | "method" | "mutable" 
+| ("function" | "fun" | "match" | "with" | "ref" | "try" | "new"
+      | "lazy" | "as" | "val" | "method" | "mutable" | "inherit"
       | "private" | "for" | "while" | "to" | "done" | "downto" ) as s
     { buf # raw "<span class=key2>" ;
       buf # esc s ;
@@ -60,7 +60,7 @@ rule lex hub buf = parse
     { buf # esc s ;
       lex hub buf lexbuf }
 
-| ( '`' ['a'-'z'] ['a' - 'z' '0' - '9' 'A' - 'Z' '_'] *) as s
+|  '`' (['a' - 'z' 'A' - 'Z'] ['a' - 'z' '0' - '9' 'A' - 'Z' '_'] * as s)
     { buf # raw "<span class=light>`</span><span class=atom>" ;
       buf # esc s ;
       buf # raw "</span>" ;
