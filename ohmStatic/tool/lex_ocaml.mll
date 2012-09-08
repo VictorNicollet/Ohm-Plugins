@@ -48,13 +48,17 @@ rule lex hub buf = parse
       buf # raw "</span>" ;
       lex hub buf lexbuf }
 
-| ([ '~' '?' ] as c) (['a'-'z'] ['a' - 'z' '0' - '9' 'A' - 'Z' '_'] * as s) ':'
+| ([ '~' '?' ] as c) (['a'-'z'] ['a' - 'z' '0' - '9' 'A' - 'Z' '_'] * as s)
     { buf # raw "<span class=light>" ;
       buf # raw (String.make 1 c) ;
-      buf # raw "<span class=atom>" ;
+      buf # raw "</span><span class=atom>" ;
       buf # esc s ;
-      buf # raw "</span>:</span>" ;
+      buf # raw "</span>" ;
       lex hub buf lexbuf }    
+
+| [ 'a' - 'z'] ['a' - 'z' 'A' - 'Z' '0' - '9' '_'] * as s
+    { buf # esc s ;
+      lex hub buf lexbuf }
 
 | ( '`' ['a'-'z'] ['a' - 'z' '0' - '9' 'A' - 'Z' '_'] *) as s
     { buf # raw "<span class=light>`</span><span class=atom>" ;
@@ -62,6 +66,6 @@ rule lex hub buf = parse
       buf # raw "</span>" ;
       lex hub buf lexbuf }
 
-| _ as c { buf # raw (String.make 1 c) ; lex hub buf lexbuf }
+| _ as c { buf # esc (String.make 1 c) ; lex hub buf lexbuf }
 | eof { () }
 
