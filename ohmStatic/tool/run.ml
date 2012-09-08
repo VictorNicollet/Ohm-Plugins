@@ -6,6 +6,7 @@ let hub = Hub.make (function
   | "verb" | "verbatim" -> Some Lex_verbatim.lex 
   | "html" -> Some Lex_html.lex
   | "url" -> Some Lex_url.lex 
+  | "ocaml" -> Some Lex_ocaml.lex
   | _ -> None
 ) 
 
