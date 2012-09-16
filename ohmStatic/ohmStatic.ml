@@ -14,7 +14,7 @@ type page = <
   bcls  : string list ;
   title : string option ;
 >
-type item = [ `Page of page | `File ] 
+type item = [ `Page of page | `File of string ] 
 type site = (string,item) BatPMap.t
 
 let ends s t = BatString.ends_with s t
@@ -38,20 +38,25 @@ let canonical = function
 let default_render _ ?css ?js ?head ?favicon ?body_classes ~title writer = 
   return (O.page ?css ?js ?head ?favicon ?body_classes ~title writer)
 
-let export ?(rename=canonical) ?(render=default_render) ?(public="/public/") ~server ~title site = 
+let export ?(rename=canonical) ?(render=default_render) ?(public="/") ~server ~title site = 
 
-  let endpoints, definitions = 
-    BatPMap.foldi begin fun key item (endpoints, definitions) -> 
-      match item with `File -> (endpoints,definitions) | `Page page ->
-	let endpoint, define = Action.declare server (rename key) Action.Args.none in
-	BatPMap.add key endpoint endpoints, 
-	(define,page,key) :: definitions
-    end site (BatPMap.empty, [])
+  let files, endpoints, definitions = 
+    BatPMap.foldi begin fun key item (files, endpoints, definitions) -> 
+      match item with 
+	| `File path -> BatPMap.add key path files, endpoints,definitions
+	| `Page page ->
+	  let endpoint, define = Action.declare server (rename key) Action.Args.none in
+	  files, 
+	  BatPMap.add key endpoint endpoints, 
+	  (define,page,key) :: definitions
+    end site (BatPMap.empty, BatPMap.empty, [])
   in
 
   let url server key = 
     try Action.url (BatPMap.find key endpoints) server () 
-    with Not_found -> public ^ key 
+    with Not_found -> 
+      try public ^ BatPMap.find key files 
+      with Not_found -> public ^ key
   in
 
   List.iter begin fun (define,page,key) ->

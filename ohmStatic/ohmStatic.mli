@@ -31,7 +31,7 @@ type page = <
 (** The type of a static. This is either a bit of HTML, or a standalone file that
     can become downloadable.
 *)
-type item = [ `Page of page | `File ] 
+type item = [ `Page of page | `File of string ] 
 
 (** The type of a static site - it maps the key (which is the relative path of an 
     item within the /static directory) to its contents. 

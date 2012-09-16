@@ -29,21 +29,14 @@ let putfile path contents =
 
   should
 
-let extract file = 
+let extract file lexer = 
 
   try 
 
     let channel = Pervasives.open_in file in 
     
     try 
-      
-      let lexer = 
-	if BatString.ends_with file ".htm" then Lex_html.lex else
-	  if BatString.ends_with file ".html" then Lex_html.lex else 	    
-	    (Printf.printf "-- Warning : unknown format %s\n" file ;
-	     Lex_verbatim.lex )
-      in
-      
+            
       let lexbuf = Lexing.from_channel channel in 
       
       let buf = new Buf.t in 
@@ -65,6 +58,18 @@ let extract file =
 
     exit (-1) 
 
+let process file = 
+
+  let lexer = 
+    if BatString.ends_with file ".htm" then Some Lex_html.lex else
+      if BatString.ends_with file ".html" then Some Lex_html.lex else 	    
+	None
+  in
+
+  match lexer with 
+    | Some lexer -> `PAGE (extract file lexer)
+    | None       -> `FILE file
+
 let rec directory path = 
 
   let stat = 
@@ -76,7 +81,7 @@ let rec directory path =
   in
 
   match stat.Unix.st_kind with 
-    | Unix.S_REG -> [ path, extract path ]
+    | Unix.S_REG -> [ path, process path ]
     | Unix.S_DIR -> 
 
       let contents = 
@@ -106,6 +111,8 @@ let generate ?name root =
     else root
   in
 
+  let name = BatOption.default (String.lowercase (Filename.basename root)) name in 
+
   let list = directory root in
   let clean = List.map (fun (path,contents) -> 
 
@@ -124,7 +131,25 @@ let generate ?name root =
     path, contents
 
   ) list in 
- 
+
+  let () = 
+    let init = "ohm publish" in
+    let buf = Buffer.create 1024 in
+    Buffer.add_string buf init ;
+
+    List.iter begin fun (path,contents) ->
+      match contents with `PAGE _ -> () | `FILE full -> 
+	Buffer.add_char buf ' ' ;
+	Buffer.add_string buf (Filename.quote full) ;
+	Buffer.add_char buf ' ' ;
+	Buffer.add_string buf (Filename.quote ("/" ^ Filename.concat name path))
+    end clean ;
+
+    let command = Buffer.contents buf in
+    if command <> init then
+      ignore (Sys.command command)
+  in
+
   let mlfile = 
     let mlbuf = Buffer.create 1024 in
     
@@ -133,32 +158,40 @@ let generate ?name root =
     
     List.iter (fun (path,contents) ->
 
-      Buffer.add_string mlbuf (Printf.sprintf "  %S, `Page (object\n" path) ;
+      match contents with 
+	| `PAGE page -> 
 
-      (* METHOD "body" *)
-      Buffer.add_string mlbuf "    method body url html = \n" ;
-      List.iter (function 
-	| `RAW s -> Buffer.add_string mlbuf 
-	  (Printf.sprintf "      Ohm.Html.str %S html ;\n" s) 
-	| `URL s -> Buffer.add_string mlbuf 
-	  (Printf.sprintf "      Ohm.Html.esc (url %S) html ;\n" s)) contents ;
-      
-      (* METHOD "css" *)
-      Buffer.add_string mlbuf "    method css url = []\n" ;
-      
-      (* METHOD "js" *)
-      Buffer.add_string mlbuf "    method js url = []\n" ;
-      
-      (* METHOD "head" *)
-      Buffer.add_string mlbuf "    method head url = \"\"\n" ;
-      
-      (* METHOD "bcls" *)
-      Buffer.add_string mlbuf "    method bcls = []\n" ;
+	  Buffer.add_string mlbuf (Printf.sprintf "  %S, `Page (object\n" path) ;
 
-      (* METHOD "title" *)
-      Buffer.add_string mlbuf "    method title = None\n" ;
+	  (* METHOD "body" *)
+	  Buffer.add_string mlbuf "    method body url html = \n" ;
+	  List.iter (function 
+	    | `RAW s -> Buffer.add_string mlbuf 
+	      (Printf.sprintf "      Ohm.Html.str %S html ;\n" s) 
+	    | `URL s -> Buffer.add_string mlbuf 
+	      (Printf.sprintf "      Ohm.Html.esc (url %S) html ;\n" s)) page ;
+	  
+	  (* METHOD "css" *)
+	  Buffer.add_string mlbuf "    method css url = []\n" ;
       
-      Buffer.add_string mlbuf "  end) ;\n" 
+	  (* METHOD "js" *)
+	  Buffer.add_string mlbuf "    method js url = []\n" ;
+      
+	  (* METHOD "head" *)
+	  Buffer.add_string mlbuf "    method head url = \"\"\n" ;
+      
+	  (* METHOD "bcls" *)
+	  Buffer.add_string mlbuf "    method bcls = []\n" ;
+
+	  (* METHOD "title" *)
+	  Buffer.add_string mlbuf "    method title = None\n" ;
+      
+	  Buffer.add_string mlbuf "  end) ;\n" 
+
+	| `FILE full -> 
+
+	  Buffer.add_string mlbuf (Printf.sprintf "  %S, `File %S ;\n" path (Filename.concat name path) ) 
+
     ) clean ;
     
     Buffer.add_string mlbuf "])\n\n" ;    
@@ -169,7 +202,6 @@ let generate ?name root =
     "val site : OhmStatic.site\n"
   in
 
-  let name = BatOption.default (String.lowercase (Filename.basename root)) name in 
   let modname = if name = "static" then "static" else "static_" ^ name in
   
   let mlpath  = Filename.(concat (concat (Sys.getcwd ()) "_build") modname ^ ".ml") in
