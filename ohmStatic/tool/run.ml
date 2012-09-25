@@ -170,6 +170,7 @@ let generate ?name root =
 	      (Printf.sprintf "      Ohm.Html.str %S html ;\n" s) 
 	    | `URL s -> Buffer.add_string mlbuf 
 	      (Printf.sprintf "      Ohm.Html.esc (url %S) html ;\n" s)) (page # contents) ;
+	  Buffer.add_string mlbuf "      ()\n" ;
 	  
 	  (* METHOD "css" *)
 	  Buffer.add_string mlbuf "    method css url = []\n" ;
