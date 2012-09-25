@@ -36,20 +36,6 @@ type page = <
   title : string option ;
   json  : renaming -> (string * Ohm.Json.t) list ;
 >
-
-(** Information about a page. Provided to renderers.
-*)
-type pageinfo = <
-  body  : Ohm.Html.writer ;
-  css   : string list ;
-  js    : string list ;
-  head  : string ;
-  bcls  : string list ;
-  title : string ;
-  key   : key ;
-  url   : string ;
-  json  : (string * Ohm.Json.t) list
->
   
 (** The type of a static. This is either a bit of HTML, or a standalone file that
     can become downloadable.
@@ -61,41 +47,84 @@ type item = [ `Page of page | `File of string ]
 *)
 type site = (string,item) BatPMap.t
 
+(** A module for working on exported sites. *)
+module Exported : sig
+
+  (** The type of an exported site. Since a site is exported on a server, the
+      server parameter is also a parameter of the exported site. *)
+  type 'server t 
+
+  (** The internal renamer function used to export this site. *)
+  val rename : 'any t -> renaming
+
+  (** Generate the url based on a key and the server parameter. This may 
+      return [None] if the key does not match a defined (and public) 
+      page or file. 
+  *)
+  val url : 'server t -> 'server -> key -> string option 
+
+end
+
+(** Information about a page. Provided to renderers. 
+    This includes the received HTTP request.  
+*)
+type 'server pageinfo = <
+  body  : Ohm.Html.writer ;
+  css   : string list ;
+  js    : string list ;
+  head  : string ;
+  bcls  : string list ;
+  title : string ;
+  key   : key ;
+  url   : string ;
+  json  : (string * Ohm.Json.t) list ;
+  req   : ('server, unit) Ohm.Action.request ;
+  site  : 'server Exported.t
+>
+
+(** A page renderer. Behaves like an [Ohm.Html.ctxrenderer], but is provided with 
+    all its arguments as a single {!type:pageinfo}. *)
+type ('serv,'ctx) renderer = 'serv pageinfo -> ('ctx, Ohm.JsCode.t -> string) Ohm.Run.t
+
 (** Canonical transformation of an URL : remove [.md], [.htm] and [.html] extensions, 
     then turn [foo/index] into [foo] (and ["index"] into [""]). 
 *)
 val canonical : key -> string
 
-(** A page renderer. Behaves like an [Ohm.Html.ctxrenderer], but is provided with 
-    all its arguments as a single {!type:pageinfo}. *)
-type 'ctx renderer = pageinfo -> ('ctx, Ohm.JsCode.t -> string) Ohm.Run.t
-
 (** Create a renderer from a custom page renderer. This simply uses the selected 
     page renderer instead of [O.page]. 
 *)
-val custom_render : Ohm.Html.renderer -> 'ctx renderer
+val custom_render : Ohm.Html.renderer -> ('s,'ctx) renderer
 
 (** Create a renderer from a wrapper template : the page contents are passed to the
     wrapper template function, and then rendered with the vanilla [O.page]. *)
 val wrap : 
      ?page:Ohm.Html.renderer
   -> (Ohm.Html.writer -> ('ctx, Ohm.Html.writer) Ohm.Run.t)  
-  -> 'ctx renderer
+  -> ('serv,'ctx) renderer
+
+(** Create a renderer from a wrapper template that is also provided with the full
+    pageinfo for the page being rendered. 
+*)
+val extend : 
+     ?page:Ohm.Html.renderer
+  -> ('serv pageinfo -> ('ctx, Ohm.Html.writer) Ohm.Run.t) 
+  -> ('serv,'ctx) renderer
 
 (** Combine multiple renderers : select which renderer to use based on the prefix
     of the key of the page being rendered. The first matching prefix wins.
 *)
 val prefixed_render : 
-     default:'ctx renderer
-  -> (string * 'ctx renderer) list 
-  -> 'ctx renderer
+     default:('serv,'ctx) renderer
+  -> (string * ('serv,'ctx) renderer) list 
+  -> ('serv,'ctx) renderer
 
 (** Provide a context for rendering. This turns a renderer with an arbitrary 
     context into a unit-context renderer as expected by the {!val:export}
     function. You are expected to provide a function that returns the context
     (so that the exporter can generate a new context on demand). 
 *)
-val with_context : ('arg -> 'ctx) -> 'arg -> 'ctx renderer -> unit renderer
+val with_context : ('arg -> 'ctx) -> 'arg -> ('s,'ctx) renderer -> ('s,unit) renderer
 
 (** Export a static site. 
     @param rename A function that provides the path of each item. By default, 
@@ -109,9 +138,9 @@ val with_context : ('arg -> 'ctx) -> 'arg -> 'ctx renderer -> unit renderer
 *)
 val export : 
      ?rename:renaming
-  -> ?render:unit renderer
+  -> ?render:('s,unit) renderer
   -> ?public:string
   ->  server:('s Ohm.Action.server)
   ->  title:string
   ->  site
-  ->  unit
+  ->  's Exported.t

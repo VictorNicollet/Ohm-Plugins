@@ -17,7 +17,22 @@ type page = <
   title : string option ;
   json  : renaming -> (string * Json.t) list ;
 >
-type pageinfo = <
+type item = [ `Page of page | `File of string ] 
+type site = (string,item) BatPMap.t
+
+module Exported = struct
+    
+  type 'server t = {
+    rename  : renaming ;
+    url     : 'server -> key -> string option 
+  }
+
+  let rename site = site.rename
+  let url site = site.url
+
+end
+
+type 'server pageinfo = <
   body  : Ohm.Html.writer ;
   css   : string list ;
   js    : string list ;
@@ -26,11 +41,12 @@ type pageinfo = <
   title : string ;
   key   : key ;
   url   : string ;
-  json  : (string * Json.t) list
+  json  : (string * Json.t) list ;
+  req   : ('server, unit) Action.request ;
+  site  : 'server Exported.t
 >
-type 'ctx renderer = pageinfo -> ('ctx, JsCode.t -> string) Run.t
-type item = [ `Page of page | `File of string ] 
-type site = (string,item) BatPMap.t
+
+type ('s,'ctx) renderer = 's pageinfo -> ('ctx, JsCode.t -> string) Run.t
 
 let ends s t = BatString.ends_with s t
 
@@ -50,7 +66,7 @@ let canonical = function
   | s when ends s ".md"   -> clip ".md"   s
   | s -> s
 
-let generic_render ?writer (page:Html.renderer) (info:pageinfo) =
+let generic_render ?writer (page:Html.renderer) (info:'s pageinfo) =
 
   let writer = BatOption.default (info # body) writer 
   and css    = info # css
@@ -69,6 +85,10 @@ let custom_render page info = generic_render page info
 let wrap ?(page=O.page) template info = 
   let! writer = ohm (template (info # body)) in 
   generic_render ~writer page info 
+
+let extend ?(page=O.page) template info = 
+  let! writer = ohm (template info) in
+  generic_render ~writer page info
 
 let prefixed_render ~default list info =
   let key = info # key in 
@@ -99,10 +119,16 @@ let export ?(rename=canonical) ?(render=default_render) ?(public="/") ~server ~t
   in
 
   let url server key = 
-    try Action.url (BatPMap.find key endpoints) server () 
+    try Some (Action.url (BatPMap.find key endpoints) server ()) 
     with Not_found -> 
-      try public ^ BatPMap.find key files 
-      with Not_found -> public ^ key
+      try Some (public ^ BatPMap.find key files)
+      with Not_found -> None
+  in
+
+  let exported = { Exported.rename ; Exported.url } in
+
+  let url server key = 
+    match url server key with Some url -> url | None -> public ^ key
   in
 
   List.iter begin fun (define,page,key) ->
@@ -140,11 +166,19 @@ let export ?(rename=canonical) ?(render=default_render) ?(public="/") ~server ~t
 	val json = lazy (page # json rename) 
 	method json = Lazy.force json 
 
+	val req = req
+	method req = req
+
+	val site = exported
+	method site = site
+
       end in 
 
       let! page = ohm (render info) in
       return $ Action.page page res 
 
     end 
-  end definitions
+  end definitions ;
+
+  exported
 
