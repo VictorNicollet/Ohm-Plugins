@@ -51,13 +51,32 @@ type site = (string,item) BatPMap.t
 *)
 val canonical : key -> string
 
+(** Create a renderer from a wrapper template : the page contents are passed to the
+    wrapper template function, and then rendered with the vanilla [O.page]. *)
+val wrap : 
+     (Ohm.Html.writer -> ('ctx, Ohm.Html.writer) Ohm.Run.t)  
+  -> (key -> 'ctx Ohm.Html.ctxrenderer)
+
+(** Combine multiple renderers : select which renderer to use based on the prefix
+    of the key of the page being rendered. *)
+val prefixed_render : 
+     default:(key -> 'ctx Ohm.Html.ctxrenderer)
+  -> (string * (key -> 'ctx Ohm.Html.ctxrenderer)) list 
+  -> (key -> 'ctx Ohm.Html.ctxrenderer)
+
+(** Provide a context for rendering *)
+val with_context : 
+     'ctx 
+  -> (key -> 'ctx Ohm.Html.ctxrenderer)
+  -> (key -> unit Ohm.Html.ctxrenderer) 
+
 (** Export a static site. 
     @param rename A function that provides the path of each item. By default, 
     {!val:canonical} is applied to the key.
     @param server The server on which the site should run. 
     @param title The default title to be used, if no title is provided by the page. 
     @param render The function which is used to render the item. By default, 
-    this is the vanilla [Ohm.Html.print_page]. 
+    this is the vanilla [Ohm.page]. 
     @param public The url prefix for files that are available for public download. 
     By default, this is ["/public"] and points to the [www/public] directory.
 *)

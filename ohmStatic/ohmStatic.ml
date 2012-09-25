@@ -40,6 +40,20 @@ let canonical = function
 let default_render _ ?css ?js ?head ?favicon ?body_classes ~title writer = 
   return (O.page ?css ?js ?head ?favicon ?body_classes ~title writer)
 
+let wrap template key ?css ?js ?head ?favicon ?body_classes ~title writer = 
+  let! writer = ohm (template writer) in 
+  return (O.page ?css ?js ?head ?favicon ?body_classes ~title writer) 
+
+let prefixed_render ~default list key =
+  let page = 
+    try snd (List.find (fun (prefix,_) -> BatString.starts_with key prefix) list) 
+    with _ -> default
+  in
+  page key 
+
+let with_context ctx page key ?css ?js ?head ?favicon ?body_classes ~title writer = 
+  Run.with_context ctx (page key ?css ?js ?head ?favicon ?body_classes ~title writer) 
+
 let export ?(rename=canonical) ?(render=default_render) ?(public="/") ~server ~title site = 
 
   let files, endpoints, definitions = 
