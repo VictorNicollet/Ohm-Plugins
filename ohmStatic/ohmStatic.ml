@@ -4,6 +4,8 @@ open BatPervasives
 open Ohm
 open Ohm.Universal
 
+exception Private
+
 type key = string
 type renaming = key -> string
 type page = <
@@ -45,10 +47,13 @@ let export ?(rename=canonical) ?(render=default_render) ?(public="/") ~server ~t
       match item with 
 	| `File path -> BatPMap.add key path files, endpoints,definitions
 	| `Page page ->
-	  let endpoint, define = Action.declare server (rename key) Action.Args.none in
-	  files, 
-	  BatPMap.add key endpoint endpoints, 
-	  (define,page,key) :: definitions
+	  try 
+	    let endpoint, define = Action.declare server (rename key) Action.Args.none in
+	    files, 
+	    BatPMap.add key endpoint endpoints, 
+	    (define,page,key) :: definitions
+	  with Private -> 
+	    files, endpoints, definitions 
     end site (BatPMap.empty, BatPMap.empty, [])
   in
 

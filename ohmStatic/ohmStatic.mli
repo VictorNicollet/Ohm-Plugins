@@ -11,8 +11,16 @@
 *)
 type key = string
 
+(** Raise this exception from a renaming function to indicate that a given item
+    should not be public. This is useful when, for instance, you need to include 
+    a specific bit of HTML on several pages but do not want to make that HTML
+    available in other places. 
+*)
+exception Private
+
 (** The type of a renaming operation. Such operations turn the key of a site element
-    into the public URL at which it may be found.
+    into the public URL at which it may be found. A renaming function may also raise
+    {!Private}, which means an item has no public URL.
 *)
 type renaming = key -> string
 
