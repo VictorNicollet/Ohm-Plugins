@@ -6,3 +6,4 @@ let slice ~count list =
     | list, h :: _ -> list, Some h 
   with _ -> list, None
 
+module Book = OhmPaging_book
