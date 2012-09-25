@@ -34,8 +34,23 @@ type page = <
   head  : renaming -> string ;
   bcls  : string list ;
   title : string option ;
+  json  : renaming -> (string * Ohm.Json.t) list ;
 >
 
+(** Information about a page. Provided to renderers.
+*)
+type pageinfo = <
+  body  : Ohm.Html.writer ;
+  css   : string list ;
+  js    : string list ;
+  head  : string ;
+  bcls  : string list ;
+  title : string ;
+  key   : key ;
+  url   : string ;
+  json  : (string * Ohm.Json.t) list
+>
+  
 (** The type of a static. This is either a bit of HTML, or a standalone file that
     can become downloadable.
 *)
@@ -51,14 +66,20 @@ type site = (string,item) BatPMap.t
 *)
 val canonical : key -> string
 
-(** A page renderer. Behaves like an [Ohm.Html.ctxrenderer] except that it also 
-    receives the key of the rendered document as its first parameter. *)
-type 'ctx renderer = key -> 'ctx Ohm.Html.ctxrenderer
+(** A page renderer. Behaves like an [Ohm.Html.ctxrenderer], but is provided with 
+    all its arguments as a single {!type:pageinfo}. *)
+type 'ctx renderer = pageinfo -> ('ctx, Ohm.JsCode.t -> string) Ohm.Run.t
+
+(** Create a renderer from a custom page renderer. This simply uses the selected 
+    page renderer instead of [O.page]. 
+*)
+val custom_render : Ohm.Html.renderer -> 'ctx renderer
 
 (** Create a renderer from a wrapper template : the page contents are passed to the
     wrapper template function, and then rendered with the vanilla [O.page]. *)
 val wrap : 
-     (Ohm.Html.writer -> ('ctx, Ohm.Html.writer) Ohm.Run.t)  
+     ?page:Ohm.Html.renderer
+  -> (Ohm.Html.writer -> ('ctx, Ohm.Html.writer) Ohm.Run.t)  
   -> 'ctx renderer
 
 (** Combine multiple renderers : select which renderer to use based on the prefix
@@ -81,7 +102,7 @@ val with_context : 'ctx -> 'ctx renderer -> unit renderer
     @param server The server on which the site should run. 
     @param title The default title to be used, if no title is provided by the page. 
     @param render The function which is used to render the item. By default, 
-    this is the vanilla [O.page]. 
+    this uses the vanilla [O.page]. 
     @param public The url prefix for files that are available for public download. 
     By default, this is ["/public"] and points to the [www/public] directory.
 *)

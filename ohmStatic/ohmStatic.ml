@@ -15,7 +15,20 @@ type page = <
   head  : renaming -> string ;
   bcls  : string list ;
   title : string option ;
+  json  : renaming -> (string * Json.t) list ;
 >
+type pageinfo = <
+  body  : Ohm.Html.writer ;
+  css   : string list ;
+  js    : string list ;
+  head  : string ;
+  bcls  : string list ;
+  title : string ;
+  key   : key ;
+  url   : string ;
+  json  : (string * Json.t) list
+>
+type 'ctx renderer = pageinfo -> ('ctx, JsCode.t -> string) Run.t
 type item = [ `Page of page | `File of string ] 
 type site = (string,item) BatPMap.t
 
@@ -37,24 +50,36 @@ let canonical = function
   | s when ends s ".md"   -> clip ".md"   s
   | s -> s
 
-type 'ctx renderer = key -> 'ctx Html.ctxrenderer
+let generic_render ?writer (page:Html.renderer) (info:pageinfo) =
 
-let default_render _ ?css ?js ?head ?favicon ?body_classes ~title writer = 
-  return (O.page ?css ?js ?head ?favicon ?body_classes ~title writer)
+  let writer = BatOption.default (info # body) writer 
+  and css    = info # css
+  and js     = info # js 
+  and head   = info # head 
+  and body_classes = info # bcls
+  and title  = info # title 
+  in
 
-let wrap template key ?css ?js ?head ?favicon ?body_classes ~title writer = 
-  let! writer = ohm (template writer) in 
-  return (O.page ?css ?js ?head ?favicon ?body_classes ~title writer) 
+  return (page ~css ~js ~head ~body_classes ~title writer)
 
-let prefixed_render ~default list key =
+let default_render info = generic_render O.page info 
+
+let custom_render page info = generic_render page info 
+
+let wrap ?(page=O.page) template info = 
+  let! writer = ohm (template (info # body)) in 
+  generic_render ~writer page info 
+
+let prefixed_render ~default list info =
+  let key = info # key in 
   let page = 
     try snd (List.find (fun (prefix,_) -> BatString.starts_with key prefix) list) 
     with _ -> default
   in
-  page key 
+  page info  
 
-let with_context ctx page key ?css ?js ?head ?favicon ?body_classes ~title writer = 
-  Run.with_context ctx (page key ?css ?js ?head ?favicon ?body_classes ~title writer) 
+let with_context ctx page info = 
+  Run.with_context ctx (page info)
 
 let export ?(rename=canonical) ?(render=default_render) ?(public="/") ~server ~title site = 
 
@@ -84,15 +109,40 @@ let export ?(rename=canonical) ?(render=default_render) ?(public="/") ~server ~t
 
     define begin fun req res ->
 
-      let rename = url (req # server) in 
-      let body   = page # body  rename in
-      let css    = page # css   rename in
-      let js     = page # js    rename in
-      let head   = page # head  rename in 
-      let bcls   = page # bcls in
-      let title  = BatOption.default title (page # title) in
+      let rename = url (req # server) in
 
-      let! page = ohm $ render key ?favicon:None ~css ~js ~head ~body_classes:bcls ~title body in
+      let info = object
+
+	val url = lazy (rename key) 
+	method url = Lazy.force url 
+
+	val body = page # body rename
+	method body = body 
+
+	val css = page # css rename 
+	method css = css
+
+	val js = page # js rename 
+	method js = js
+
+	val head = page # head rename
+	method head = head
+
+	val bcls = page # bcls
+	method bcls = bcls 
+	  
+	val title = BatOption.default title (page # title) 
+	method title = title
+
+	val key = key
+	method key = key
+
+	val json = lazy (page # json rename) 
+	method json = Lazy.force json 
+
+      end in 
+
+      let! page = ohm (render info) in
       return $ Action.page page res 
 
     end 
