@@ -76,7 +76,7 @@ val with_context :
     @param server The server on which the site should run. 
     @param title The default title to be used, if no title is provided by the page. 
     @param render The function which is used to render the item. By default, 
-    this is the vanilla [Ohm.page]. 
+    this is the vanilla [O.page]. 
     @param public The url prefix for files that are available for public download. 
     By default, this is ["/public"] and points to the [www/public] directory.
 *)
