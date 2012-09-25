@@ -92,9 +92,10 @@ val prefixed_render :
 
 (** Provide a context for rendering. This turns a renderer with an arbitrary 
     context into a unit-context renderer as expected by the {!val:export}
-    function.
+    function. You are expected to provide a function that returns the context
+    (so that the exporter can generate a new context on demand). 
 *)
-val with_context : 'ctx -> 'ctx renderer -> unit renderer
+val with_context : ('arg -> 'ctx) -> 'arg -> 'ctx renderer -> unit renderer
 
 (** Export a static site. 
     @param rename A function that provides the path of each item. By default, 

@@ -78,8 +78,8 @@ let prefixed_render ~default list info =
   in
   page info  
 
-let with_context ctx page info = 
-  Run.with_context ctx (page info)
+let with_context make_ctx arg page info = 
+  Run.with_context (make_ctx arg) (page info)
 
 let export ?(rename=canonical) ?(render=default_render) ?(public="/") ~server ~title site = 
 
