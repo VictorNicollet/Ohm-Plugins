@@ -87,7 +87,7 @@ val with_context : 'ctx -> 'ctx renderer -> unit renderer
 *)
 val export : 
      ?rename:renaming
-  -> ?render:(key -> unit Ohm.Html.ctxrenderer)
+  -> ?render:unit renderer
   -> ?public:string
   ->  server:('s Ohm.Action.server)
   ->  title:string
