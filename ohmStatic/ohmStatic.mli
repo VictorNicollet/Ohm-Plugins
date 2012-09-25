@@ -51,24 +51,29 @@ type site = (string,item) BatPMap.t
 *)
 val canonical : key -> string
 
+(** A page renderer. Behaves like an [Ohm.Html.ctxrenderer] except that it also 
+    receives the key of the rendered document as its first parameter. *)
+type 'ctx renderer = key -> 'ctx Ohm.Html.ctxrenderer
+
 (** Create a renderer from a wrapper template : the page contents are passed to the
     wrapper template function, and then rendered with the vanilla [O.page]. *)
 val wrap : 
      (Ohm.Html.writer -> ('ctx, Ohm.Html.writer) Ohm.Run.t)  
-  -> (key -> 'ctx Ohm.Html.ctxrenderer)
+  -> 'ctx renderer
 
 (** Combine multiple renderers : select which renderer to use based on the prefix
-    of the key of the page being rendered. *)
+    of the key of the page being rendered. The first matching prefix wins.
+*)
 val prefixed_render : 
-     default:(key -> 'ctx Ohm.Html.ctxrenderer)
-  -> (string * (key -> 'ctx Ohm.Html.ctxrenderer)) list 
-  -> (key -> 'ctx Ohm.Html.ctxrenderer)
+     default:'ctx renderer
+  -> (string * 'ctx renderer) list 
+  -> 'ctx renderer
 
-(** Provide a context for rendering *)
-val with_context : 
-     'ctx 
-  -> (key -> 'ctx Ohm.Html.ctxrenderer)
-  -> (key -> unit Ohm.Html.ctxrenderer) 
+(** Provide a context for rendering. This turns a renderer with an arbitrary 
+    context into a unit-context renderer as expected by the {!val:export}
+    function.
+*)
+val with_context : 'ctx -> 'ctx renderer -> unit renderer
 
 (** Export a static site. 
     @param rename A function that provides the path of each item. By default, 

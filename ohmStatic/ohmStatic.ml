@@ -37,6 +37,8 @@ let canonical = function
   | s when ends s ".md"   -> clip ".md"   s
   | s -> s
 
+type 'ctx renderer = key -> 'ctx Html.ctxrenderer
+
 let default_render _ ?css ?js ?head ?favicon ?body_classes ~title writer = 
   return (O.page ?css ?js ?head ?favicon ?body_classes ~title writer)
 
