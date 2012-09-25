@@ -44,7 +44,7 @@ let extract file lexer =
       lexer hub buf lexbuf ;
       Pervasives.close_in channel ;
       
-      buf # contents
+      buf
 	
     with exn -> 
       
@@ -169,7 +169,7 @@ let generate ?name root =
 	    | `RAW s -> Buffer.add_string mlbuf 
 	      (Printf.sprintf "      Ohm.Html.str %S html ;\n" s) 
 	    | `URL s -> Buffer.add_string mlbuf 
-	      (Printf.sprintf "      Ohm.Html.esc (url %S) html ;\n" s)) page ;
+	      (Printf.sprintf "      Ohm.Html.esc (url %S) html ;\n" s)) (page # contents) ;
 	  
 	  (* METHOD "css" *)
 	  Buffer.add_string mlbuf "    method css url = []\n" ;
@@ -185,6 +185,23 @@ let generate ?name root =
 
 	  (* METHOD "title" *)
 	  Buffer.add_string mlbuf "    method title = None\n" ;
+
+	  (* METHOD "json" *)
+	  Buffer.add_string mlbuf "    method json url = [\n" ;
+	  List.iter (fun (key,json) ->
+	    Buffer.add_string mlbuf (Printf.sprintf "      %S, " key) ;
+	    begin match json with 
+	      | [] -> Buffer.add_string mlbuf "Json.Null"
+	      | [ `RAW s ] -> Buffer.add_string mlbuf (Printf.sprintf "Ohm.Json.deserialize %S" s)
+	      | _ -> 
+		Buffer.add_string mlbuf "Ohm.Json.deserialize (String.concat \"\" [\n" ;
+		List.iter (function 
+		  | `RAW s -> Buffer.add_string mlbuf (Printf.sprintf "        %S ;\n" s) 
+		  | `URL s -> Buffer.add_string mlbuf (Printf.sprintf "        url %S ;\n" s)) json ;
+		Buffer.add_string mlbuf "      ])"
+	    end ;
+	    Buffer.add_string mlbuf " ;\n") (page # json) ;
+	  Buffer.add_string mlbuf "    ]\n" ;
       
 	  Buffer.add_string mlbuf "  end) ;\n" 
 

@@ -1,9 +1,15 @@
 (* Ohm is © 2012 Victor Nicollet *)
 
+let extract content = 
+  List.rev_map (function 
+    | `URL u -> `URL u 
+    | `BUF b -> `RAW (Buffer.contents b)) content 
+    
 class t = object (self)
 
   val mutable buffer  = Buffer.create 1024 
   val mutable content = ([] : [`BUF of Buffer.t|`URL of string] list) 
+  val mutable json    = ([] : (string * [`BUF of Buffer.t | `URL of string] list) list) 
 
   method url k = 
     if Buffer.length buffer > 0 then (
@@ -41,12 +47,10 @@ class t = object (self)
     self # raw ">" 
 
   method contents : [ `URL of string | `RAW of string ] list = 
+    if Buffer.length buffer > 0 then content <- `BUF buffer :: content ;
+    extract content
 
-    if Buffer.length buffer > 0 then 
-      content <- `BUF buffer :: content ;
-
-    List.rev_map (function 
-      | `URL u -> `URL u 
-      | `BUF b -> `RAW (Buffer.contents b)) content 
+  method json : (string * [`URL of string | `RAW of string] list) list = 
+    List.map (fun (key,json) -> key, extract json) json 
 
 end
