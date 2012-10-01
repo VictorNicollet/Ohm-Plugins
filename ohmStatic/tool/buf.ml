@@ -23,9 +23,9 @@ class t = object (self)
 
   method esc s = 
     self # raw 
-      (String.concat "&amp;" 
+      (String.concat "&lt;" 
 	 (List.map 
-	    (fun s -> String.concat "&lt;" 
+	    (fun s -> String.concat "&amp;" 
 	      (List.map 
 		 (fun s -> String.concat "&quot;" (BatString.nsplit s "\""))
 		 (BatString.nsplit s "&")))
