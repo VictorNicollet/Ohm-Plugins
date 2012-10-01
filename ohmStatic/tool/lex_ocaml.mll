@@ -1,7 +1,7 @@
 { (* Ohm is © 2012 Victor Nicollet *) }
 
 let unalpha = [ '(' '[' ']' ')' '.' '?' '/' ':' ';' ',' '{' '=' '<' '>' 
-		  '!' '-' '+' '*' '~' '&' '|' ]
+		  '!' '-' '+' '*' '~' '&' '|' '$' '#' ]
 
 rule lex hub buf = parse 
 | "}>" { () }
@@ -15,11 +15,17 @@ rule lex hub buf = parse
       lex hub buf lexbuf }
 
 | ("open" | "module" | "struct" | "in" | "let" | "let!" | "class"
-      | "type" | "end" | "begin" | "and" | "rec" | "json"
+      | "method" | "type" | "end" | "begin" | "and" | "rec" | "type json"
       | "object" | "sig" | "functor") as s
     { buf # raw "<span class=keyword>" ;
       buf # esc s ;
       buf # raw "</span>" ; 
+      lex hub buf lexbuf }
+
+|  ("Bad" | "Ok" | "Some" | "None" | "true" | "false") as s
+    { buf # raw "<span class=atom>" ;
+      buf # esc s ;
+      buf # raw "</span>" ;
       lex hub buf lexbuf }
 
 | unalpha + as s 
@@ -29,8 +35,9 @@ rule lex hub buf = parse
       lex hub buf lexbuf }
 
 | ("function" | "fun" | "match" | "with" | "ref" | "try" | "new"
-      | "lazy" | "as" | "val" | "method" | "mutable" | "inherit"
-      | "private" | "for" | "while" | "to" | "done" | "downto" ) as s
+      | "lazy" | "as" | "val" | "mutable" | "inherit" | "raise" 
+      | "failwith" | "assert" | "private" | "for" | "while" 
+      | "to" | "done" | "downto" ) as s
     { buf # raw "<span class=key2>" ;
       buf # esc s ;
       buf # raw "</span>" ;  
