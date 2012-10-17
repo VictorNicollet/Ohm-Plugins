@@ -9,6 +9,8 @@
 
 }
 
+let urlchar = ['A'-'Z' '0'-'9' 'a'-'z' '.' '-' '_' '/' '?' '&' '=' '#' ':' '%' '+' ]
+
 rule format acc state = parse
 
   | [ '\t' ' ' '\r' ] 
@@ -39,9 +41,9 @@ rule format acc state = parse
 	) ;
 	format acc state lexbuf }
 
-  | ( "http://" ['A'-'Z' '0'-'9' 'a'-'z' '.' '-' '_' '/'] +
-	| "https://" ['A'-'Z' '0'-'9' 'a'-'z' '.' '-' '_' '/'] + 
-	| "www." ['A'-'Z' '0'-'9' 'a'-'z' '.' '-' '_' '/'] +) as url
+  | ( "http://" urlchar +
+	| "https://" urlchar + 
+	| "www." urlchar +) as url
       { if state.url then (
 	  Ohm.Html.str "<a href=\"" acc ;
 	  Ohm.Html.str (if BatString.starts_with url "www" then "http://" else "") acc ;
