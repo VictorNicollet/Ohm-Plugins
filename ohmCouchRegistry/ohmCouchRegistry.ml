@@ -42,12 +42,19 @@ module Make = functor(R:REGISTRY_CONFIG) -> struct
   module Db = CouchDB.Database(R.Store)
   module Tbl = CouchDB.Table(Db)(Id)(Entry)
 
+  let reserved = Hashtbl.create 100
+
   type 'a property = {
     fmt : 'a Fmt.t ;
     suffix : string ;
   }
 
   let property fmt name = 
+    begin 
+      try Hashtbl.find reserved name ; 
+	      Util.log "Property %s is already reserved !" name ;
+      with Not_found -> Hashtbl.add reserved name ()
+    end ;
     let suffix = "." ^ String.concat ".." (BatString.nsplit name ".") in
     { fmt ; suffix }
 
