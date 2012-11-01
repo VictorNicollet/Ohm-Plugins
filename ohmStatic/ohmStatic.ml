@@ -20,11 +20,26 @@ type page = <
 type item = [ `Page of page | `File of string ] 
 type site = (string,item) BatPMap.t
 
+type ('server,'site) rec_pageinfo = <
+  body  : Ohm.Html.writer ;
+  css   : string list ;
+  js    : string list ;
+  head  : string ;
+  bcls  : string list ;
+  title : string ;
+  key   : key ;
+  url   : string ;
+  json  : (string * Json.t) list ;
+  req   : ('server, unit) Action.request ;
+  site  : 'site
+>
+
 module Exported = struct
     
   type 'server t = {
-    rename  : renaming ;
-    url     : 'server -> key -> string option 
+    rename   : renaming ;
+    url      : 'server -> key -> string option ;
+    get_page : 'server t -> ('server,unit) Action.request  -> key -> ('server, 'server t) rec_pageinfo option 
   }
 
   let rename site = site.rename
@@ -44,7 +59,9 @@ type 'server pageinfo = <
   json  : (string * Json.t) list ;
   req   : ('server, unit) Action.request ;
   site  : 'server Exported.t
->
+> ;;
+
+let get_page site = site.Exported.get_page site
 
 type ('s,'ctx) renderer = 's pageinfo -> ('ctx, JsCode.t -> string) Run.t
 
@@ -101,21 +118,66 @@ let prefixed_render ~default list info =
 let with_context make_ctx arg page info = 
   Run.with_context (make_ctx arg) (page info)
 
+let info_builder key page title public url exported req = 
+  let rename key = 
+    match url (req # server) key with Some url -> url | None -> public ^ key
+  in 
+  (object 
+
+    val url = lazy (rename key) 
+    method url = Lazy.force url 
+      
+    val body = page # body rename
+    method body = body 
+      
+    val css = page # css rename 
+    method css = css
+      
+    val js = page # js rename 
+    method js = js
+      
+    val head = page # head rename
+    method head = head
+      
+    val bcls = page # bcls
+    method bcls = bcls 
+      
+    val title = BatOption.default title (page # title) 
+    method title = title
+      
+    val key = key
+    method key = key
+      
+    val json = lazy (page # json rename) 
+    method json = Lazy.force json 
+      
+    val req = req
+    method req = req
+      
+    val site = exported
+    method site = site
+      
+   end)
+
+
+
 let export ?(rename=canonical) ?(render=default_render) ?(public="/") ~server ~title site = 
 
-  let files, endpoints, definitions = 
-    BatPMap.foldi begin fun key item (files, endpoints, definitions) -> 
+  let files, endpoints, pages, definitions = 
+    BatPMap.foldi begin fun key item (files, endpoints, pages, definitions) -> 
       match item with 
-	| `File path -> BatPMap.add key path files, endpoints,definitions
+	| `File path -> BatPMap.add key path files, endpoints, pages, definitions
 	| `Page page ->
 	  try 
 	    let endpoint, define = Action.declare server (rename key) Action.Args.none in
+	    let info = info_builder key page title public in
 	    files, 
 	    BatPMap.add key endpoint endpoints, 
-	    (define,page,key) :: definitions
+	    BatPMap.add key info pages,
+	    (define,page,key,info) :: definitions
 	  with Private -> 
-	    files, endpoints, definitions 
-    end site (BatPMap.empty, BatPMap.empty, [])
+	    files, endpoints, pages, definitions 
+    end site (BatPMap.empty, BatPMap.empty, BatPMap.empty, [])
   in
 
   let url server key = 
@@ -125,54 +187,18 @@ let export ?(rename=canonical) ?(render=default_render) ?(public="/") ~server ~t
       with Not_found -> None
   in
 
-  let exported = { Exported.rename ; Exported.url } in
-
-  let url server key = 
-    match url server key with Some url -> url | None -> public ^ key
+  let get_page exported req key = 
+    try Some (BatPMap.find key pages url exported req)
+    with Not_found -> None
   in
 
-  List.iter begin fun (define,page,key) ->
+  let exported = { Exported.rename ; Exported.url ; Exported.get_page } in
+
+  List.iter begin fun (define,page,key,info) ->
 
     define begin fun req res ->
 
-      let rename = url (req # server) in
-
-      let info = object
-
-	val url = lazy (rename key) 
-	method url = Lazy.force url 
-
-	val body = page # body rename
-	method body = body 
-
-	val css = page # css rename 
-	method css = css
-
-	val js = page # js rename 
-	method js = js
-
-	val head = page # head rename
-	method head = head
-
-	val bcls = page # bcls
-	method bcls = bcls 
-	  
-	val title = BatOption.default title (page # title) 
-	method title = title
-
-	val key = key
-	method key = key
-
-	val json = lazy (page # json rename) 
-	method json = Lazy.force json 
-
-	val req = req
-	method req = req
-
-	val site = exported
-	method site = site
-
-      end in 
+      let info = info url exported req in 
 
       let! page = ohm (render info) in
       return $ Action.page page res 

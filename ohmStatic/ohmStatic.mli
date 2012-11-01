@@ -82,6 +82,13 @@ type 'server pageinfo = <
   site  : 'server Exported.t
 >
 
+(** Grab the pageinfo for a certain key on a certain server. *)
+val get_page : 
+     'server Exported.t
+  -> ('server,unit) Ohm.Action.request
+  -> key
+  -> 'server pageinfo option
+
 (** A page renderer. Behaves like an [Ohm.Html.ctxrenderer], but is provided with 
     all its arguments as a single {!type:pageinfo}. *)
 type ('serv,'ctx) renderer = 'serv pageinfo -> ('ctx, Ohm.JsCode.t -> string) Ohm.Run.t
