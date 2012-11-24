@@ -41,7 +41,7 @@ let get_output_channel time =
   (* Grab output channel if it is present, otherwise create it. *)
   match !output_channel with 
     | Some (chan,_) -> chan
-    | None -> let chan = open_out file in
+    | None -> let chan = open_out_gen [Open_wronly;Open_creat;Open_append;Open_binary] 0o644 file in
 	      output_channel := Some (chan,file) ;
 	      chan
 	      
