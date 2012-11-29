@@ -209,6 +209,7 @@ module S3 = functor(Account:ACCOUNT) -> struct
       let _,str = BatString.replace ~str ~sub:"&gt;" ~by:">" in
       let _,str = BatString.replace ~str ~sub:"&lt;" ~by:"<" in
       let _,str = BatString.replace ~str ~sub:"&quot;" ~by:"\"" in
+      let _,str = BatString.replace ~str ~sub:"&apos;" ~by:"'" in
       let _,str = BatString.replace ~str ~sub:"&amp;" ~by:"&" in
       Some str
     with Not_found -> None
