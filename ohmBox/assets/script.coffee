@@ -23,7 +23,10 @@ class OhmBoxStack
 
   fetch: (url,cUrl,callback) -> 
     rq = ++@rq
-    args = $.toJSON cUrl
+    same = null
+    if cUrl 
+      same = cUrl.split "/"
+    args = $.toJSON {same:same}
     $.ajax
       url: @url + url
       contentType: 'application/json'
@@ -70,9 +73,9 @@ class OhmBoxStack
           overflow: 'hidden' 
         box.root = { $: box.$ } 
         box.re = new RegExp('^' + data.prefix)        
-        box.code = () => 
+        box.code = () =>
           @box = box
-          call data.code   
+          call data.code    
         @add url, box
         data.parents.push url 
         @replace box, data.parents

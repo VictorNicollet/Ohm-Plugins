@@ -50,19 +50,19 @@ type ctx = {
   ctx_mode      : [ `Lazy | `Eager | `Reaction of int list ] ;
 }
 
-let make ?reaction ctx_argjson ctx_morejson ctx_new_segs ctx_old_segs ctx_url ctx_root ctx_response = {
-  ctx_new_segs  ;
-  ctx_old_segs  ;
-  ctx_response  ;
+let make ?reaction ~argjson ~morejson ~new_segs ~old_segs ~url ~root ~response = {
+  ctx_new_segs  = new_segs ;
+  ctx_old_segs  = old_segs ;
+  ctx_response  = response ;
   ctx_boxes     = ref 0 ;
   ctx_reactions = ref 0 ;
   ctx_box_name  = [] ;
-  ctx_argjson   ;
-  ctx_morejson  ;
-  ctx_url       ;
-  ctx_root      ;
+  ctx_argjson   = argjson ;
+  ctx_morejson  = morejson ;
+  ctx_url       = url ;
+  ctx_root      = root ;
   ctx_mode      = let r name = `Reaction name in
-		  BatOption.(default (if ctx_old_segs = [] then `Eager else `Lazy) 
+		  BatOption.(default (if old_segs = [] then `Eager else `Lazy) 
 			       (map r reaction))
 } 
 
@@ -212,7 +212,6 @@ module Make = functor(Ctx:CTX) -> struct
     let json = BatOption.default (Json.Object []) (Action.Convenience.get_json req) in
     let args = BatOption.default default_args (ParseArgs.of_json_safe json) in
 
-
     (* If this is a first request, provide parents and prefix *)
     let json = 
       [ "prefix", Json.String prefix ;
@@ -230,13 +229,13 @@ module Make = functor(Ctx:CTX) -> struct
     (* Build the context based on what was received *)
     let ctx = make 
       ?reaction:(args#react) 
-      (args#args) 
-      (args#more) 
-      (req#args) 
-      (BatOption.default [] (args#same)) 
-      (url,segs)
-      (Action.url (req#self) (req#server) (req#args)) 
-      res
+      ~argjson:(args#args) 
+      ~morejson:(args#more) 
+      ~new_segs:(req#args) 
+      ~old_segs:(List.filter ((<>) "") (BatOption.default [] (args#same)))
+      ~url:(url,segs)
+      ~root:(Action.url (req#self) (req#server) (req#args)) 
+      ~response:res
     in
 
     let! new_ctx = ohm (build ctx) in
