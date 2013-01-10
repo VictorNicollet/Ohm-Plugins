@@ -126,6 +126,12 @@ let string ~field ?label_html ?field_html ?error_html ?label ?error seed result 
     )
   }
 
+let json ~field ?label_html ?field_html ?error_html ?label ?error seed result = 
+  string ~field ?label_html ?field_html ?error_html ?label ?error
+    (fun s -> let! data = ohm $ seed s in return (Json.serialize data))
+    (fun f s -> let json = try Json.unserialize s with _ -> Json.Null in
+		result f json)
+
 let json_of_select_list fmt list = 
   let! list = ohm $ Run.list_map (fun (value, label, html_opt) ->
     

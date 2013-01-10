@@ -68,6 +68,32 @@ val string :
   (field -> string -> ('ctx,('result,field * string) BatStd.result) Ohm.Run.t) ->
   ('ctx,'seed,'result) template
 
+(** A single JSON field.
+    
+    Acts as the [string] field, but assumes that the string stored inside is 
+    a serialized JSON value. This is especially useful when dealing with components
+    that communicate with the server using JSON.
+    
+    If no value (or an invalid JSON value) is provided, [Json.Null] is generated.
+
+    @param field Find the field element within the field context.
+    @param label_html Find a location within the parent context and append the label HTML there.
+    @param field_html Find a location within the parent context and append the field HTML there.
+    @param error_html Find a location within the parent context and append the error HTML there.
+    @param label Find the label element within the label context and render the text there.
+    @param error Find the error label element within the error context.
+*)
+val json : 
+  field:selector ->
+ ?label_html:(selector * ('ctx,Ohm.Html.writer) Ohm.Run.t) ->
+ ?field_html:(selector * ('ctx,Ohm.Html.writer) Ohm.Run.t) ->
+ ?error_html:(selector * ('ctx,Ohm.Html.writer) Ohm.Run.t) ->
+ ?label:(selector * ('ctx,string) Ohm.Run.t) ->
+ ?error:selector ->
+  ('seed -> ('ctx,Ohm.Json.t) Ohm.Run.t) ->
+  (field -> Ohm.Json.t -> ('ctx,('result,field * string) BatStd.result) Ohm.Run.t) ->
+  ('ctx,'seed,'result) template
+
 (** A JSON selector/autocomplete field.
 
     Rules for rendering are (almost) the same as for the normal string selector.
