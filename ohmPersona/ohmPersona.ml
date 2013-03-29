@@ -53,6 +53,8 @@ let init_full ?(cookie="PERSONA") ?(urlPrefix="persona/") ~server ~onLogin ~onLo
     let! assertion = req_or (return res) 
       (Action.Convenience.get_json req |> BatOption.bind Fmt.String.of_json_safe) in
 
+    let () = Util.log "Assertion: %s" assertion in
+
     let audience = 
       let domain = server # domain (req # server) in
       let port   = server # port (req # server) in
@@ -64,10 +66,28 @@ let init_full ?(cookie="PERSONA") ?(urlPrefix="persona/") ~server ~onLogin ~onLo
     in
 
     let! api = req_or (return res) begin 
-      try let response = Http_client.Convenience.http_post validate
-	    [ "audience", audience ; "assertion", assertion ] in
+      try let curl = Curl.init () in
+	  let data = Json.serialize (Json.Object [
+	    "audience", Json.String audience ;
+	    "assertion", Json.String assertion
+	  ]) in
+	  let response = 
+	    let buffer = Buffer.create 1763 in
+	    Curl.set_url curl validate ;
+	    Curl.set_writefunction curl (fun x -> Buffer.add_string buffer x ; String.length x) ;
+	    Curl.set_post curl true ;
+	    Curl.set_httpheader curl [
+	      "Content-type: application/json";
+	    ] ;
+	    Curl.set_postfields curl data ;
+	    Curl.set_postfieldsize curl (String.length data) ;
+	    Curl.perform curl ;
+	    Curl.global_cleanup () ;
+	    Buffer.contents buffer 
+	  in
+	  let () = Util.log "Response : %s" response in 
 	  ApiResponse.of_json_string_safe response
-      with _ -> None
+      with exn -> Util.log "[FAIL] OhmPersona request : %s" (Printexc.to_string exn) ; None
     end in 
 
     let! token, js = ohm (onLogin (req # server) (api # email)) in

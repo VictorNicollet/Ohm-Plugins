@@ -5,16 +5,18 @@
       eval('(' + f[0] + ')').apply(@,f[1..])
   navigator.id.watch
     loggedInUser : current
-    onLogin : (assertion) ->
+    onlogin : (assertion) ->
       $.ajax
         url: login
         contentType: 'application/json'
         type: 'POST'
-        data: $.toJSON assertion
+        data: '"' + assertion.replace(/[\\"]/g,"\\$&") + '"'
         success: success
-    onLogout : () ->
+    onlogout : () ->
       $.ajax
-        url: logout
+        url: logout, 
+        contentType: 'application/json'
+        data: "null"
         type: 'POST'
         success: success
 
