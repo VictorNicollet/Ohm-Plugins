@@ -10,16 +10,16 @@ Ohm.infinitePage = ($x,url) ->
   
       dt = $w.scrollTop()
       db = dt + $w.height()
-      et = here.$point.offset().top 
-      eb = et + here.$point.height() 
+      et = $x.offset().top 
+      eb = et + $x.height() 
 
       if (et <= db && eb >= dt)
         $w.unbind s, f
         Ohm.post url, null, (d) ->
           if d.more
             $x.before(d.more.html)
-            call d.more.code
-          call d.code
+            Ohm.call d.more.code
+          Ohm.call d.code
           $x.remove()
 
     else
@@ -27,5 +27,5 @@ Ohm.infinitePage = ($x,url) ->
 
   $w.bind s, f
 
-  do onScroll
+  do f
   
