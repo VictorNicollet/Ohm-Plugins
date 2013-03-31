@@ -276,8 +276,6 @@ module S3 = functor(Account:ACCOUNT) -> struct
       verb_name^"\n\n"^contentType^"\n"^date^"\n"^canonAmzHeaders^"/"^bucket^"/"^key	
     in
     
-    let () = print_endline stringToSign in
-
     let sign = sign (stringToSign) in
 
     let key = BatString.strip ~chars:"/" key in
@@ -385,13 +383,7 @@ module S3 = functor(Account:ACCOUNT) -> struct
 	~verb:(`PUT data) 
 	~bucket
 	~key
-	begin fun call -> 
-	  let chan = call # response_body # open_value_rd () in 
-	  let rec aux sf = try aux (sf ^ chan # input_line ()) with _ -> chan # close_in () ; sf in
-	  let back = aux "" in
-	  print_endline back ; 
-	  true 
-	end
+	begin fun call -> true end
     with Http_client.Http_protocol e ->
       Util.log "Amazon.put: %s" (Printexc.to_string e) ; false
 
