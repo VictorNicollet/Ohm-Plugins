@@ -12,10 +12,17 @@ end
 module type S3 = sig
 
   type upload 
+
+  type acl = 
+    [ `Private 
+    | `PublicRead 
+    | `PublicReadWrite 
+    | `AuthenticatedRead 
+    | `BucketOwnerRead
+    | `BucketOwnerFullControl ] 
       
   val upload : 
-       ?acl:[`Private | `PublicRead | `PublicReadWrite | `AuthenticatedRead | `BucketOwnerRead
-	    | `BucketOwnerFullControl ] 
+       ?acl:acl
     -> ?size:(int*int)
     -> ?life:float
     -> ?filename:string
@@ -39,6 +46,8 @@ module type S3 = sig
 
   val delete : bucket:string -> key:string -> bool
 
+  val put : ?contentType:string -> ?acl:acl -> bucket:string -> key:string -> string -> bool
+
   val publish : bucket:string -> key:string -> file:string -> bool
 
   val qsa_auth : bucket:string -> key:string -> duration:int -> string
@@ -47,6 +56,14 @@ end
 
 module S3 = functor(Account:ACCOUNT) -> struct
 
+  type acl = 
+    [ `Private 
+    | `PublicRead 
+    | `PublicReadWrite 
+    | `AuthenticatedRead 
+    | `BucketOwnerRead
+    | `BucketOwnerFullControl ] 
+      
   let key = 
     let len       = String.length Account.key in
     let o_key_pad = BatString.init 64
@@ -60,8 +77,7 @@ module S3 = functor(Account:ACCOUNT) -> struct
     hmac^"="
 
   type upload = {
-    acl : [ `Private | `PublicRead | `PublicReadWrite | `AuthenticatedRead | `BucketOwnerRead
-	  | `BucketOwnerFullControl ] ;
+    acl : acl ;
     size : int * int ;
     key : string ;
     bucket : string ;
@@ -235,27 +251,70 @@ module S3 = functor(Account:ACCOUNT) -> struct
     let url = "http://"^bucket^".s3.amazonaws.com/"^key^qsa in
     url
 
-  let request ~verb ~bucket ?(key="") ?(qsa="") ?(storage=`Memory) callback =
-    let verb_name = match verb with `GET -> "GET" | `PUT _ -> "PUT" | `DELETE -> "DELETE" in
+  let request ~verb ~bucket ?(key="") ?(qsa="") ?acl ?(storage=`Memory) ?contentType callback =
+
+    let verb_name = match verb with 
+      | `GET -> "GET" 
+      | `PUT _ | `PUTF _ -> "PUT" 
+      | `DELETE -> "DELETE" 
+    in
+
     let date = httpdate (Unix.gettimeofday()) in
-    let stringToSign = verb_name^"\n\n\n"^date^"\n/"^bucket^"/"^key in
+
+    let amzHeaders = BatList.filter_map identity [
+      begin match acl with None -> None | Some acl -> Some ("X-Amz-Acl", string_of_acl acl) end ;
+    ] in
+    
+    let stringToSign = 
+      let canonAmzHeaders = 
+	List.map (fun (k,v) -> String.lowercase k, v) amzHeaders
+        |> List.sort (fun (a,_) (b,_) -> compare a b) 
+	|> List.map (fun (k,v) -> Printf.sprintf "%s:%s\n" k v) 
+	|> String.concat "" 
+      in 
+      let contentType = BatOption.default "" contentType in
+      verb_name^"\n\n"^contentType^"\n"^date^"\n"^canonAmzHeaders^"/"^bucket^"/"^key	
+    in
+    
+    let () = print_endline stringToSign in
+
     let sign = sign (stringToSign) in
-    let url  = "http://"^bucket^".s3.amazonaws.com/"^key^qsa in
+
+    let key = BatString.strip ~chars:"/" key in
+    let url = "http://"^bucket^".s3.amazonaws.com/"^key^qsa in
+
     let call = match verb with 
-      | `GET -> Util.log "Amazon S3: GET %s" url ;
+
+      | `GET -> 
+	Util.log "Amazon S3: GET %s" url ;
 	(new Http_client.get url :> Http_client.http_call)
-      | `PUT file -> 
+
+      | `PUTF file -> 
 	Util.log "Amazon S3: PUT %s" url ;
 	let c = match Util.get_binary_contents file with 
 	  | Some c -> c
 	  | None -> Util.log "Amazon.request:  [PUT] %s file not found" file ; ""
-	in (new Http_client.put url c :> Http_client.http_call)	
+	in 
+	(new Http_client.put url c :> Http_client.http_call)	
+
+      | `PUT data ->
+	Util.log "Amazon.S3: PUT %s" url ;
+	(new Http_client.put url data :> Http_client.http_call) 
+
       | `DELETE -> Util.log "Amazon S3: DELETE %s" url ;
 	(new Http_client.delete url :> Http_client.http_call)
+
     in
+
     let head = call # request_header `Base in 
     head # update_field "Authorization" ("AWS "^Account.id^":"^sign) ;
     head # update_field "Date" date ;
+    
+    (match contentType with None -> () | Some t ->
+      head # update_field "Content-Type" t) ;
+
+    let () = List.iter (fun (k,v) -> head # update_field k v) amzHeaders in
+
     call # set_request_header head ;
     call # set_response_body_storage storage ;
     let pipe = new Http_client.pipeline in 
@@ -318,15 +377,33 @@ module S3 = functor(Account:ACCOUNT) -> struct
     with Http_client.Http_protocol e ->
       Util.log "Amazon.delete: %s" (Printexc.to_string e) ; false
 
+  let put ?contentType ?acl ~bucket ~key data = 
+    try 
+      request
+	?acl
+	?contentType
+	~verb:(`PUT data) 
+	~bucket
+	~key
+	begin fun call -> 
+	  let chan = call # response_body # open_value_rd () in 
+	  let rec aux sf = try aux (sf ^ chan # input_line ()) with _ -> chan # close_in () ; sf in
+	  let back = aux "" in
+	  print_endline back ; 
+	  true 
+	end
+    with Http_client.Http_protocol e ->
+      Util.log "Amazon.put: %s" (Printexc.to_string e) ; false
+
   let publish ~bucket ~key ~file = 
     try 
       request  
-	~verb:(`PUT file) 
+	~verb:(`PUTF file) 
 	~bucket
 	~key
 	begin fun call -> true end 
     with Http_client.Http_protocol e -> 
-      Util.log "Amazon.find_upload: %s" (Printexc.to_string e) ; false
+      Util.log "Amazon.publish: %s" (Printexc.to_string e) ; false
     
     
 end

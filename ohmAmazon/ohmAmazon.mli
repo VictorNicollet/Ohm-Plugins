@@ -9,9 +9,16 @@ module type S3 = sig
 
   type upload 
       
+  type acl = 
+    [ `Private 
+    | `PublicRead 
+    | `PublicReadWrite 
+    | `AuthenticatedRead 
+    | `BucketOwnerRead
+    | `BucketOwnerFullControl ] 
+      
   val upload : 
-       ?acl:[`Private | `PublicRead | `PublicReadWrite | `AuthenticatedRead | `BucketOwnerRead
-	    | `BucketOwnerFullControl ] 
+       ?acl:acl
     -> ?size:(int*int)
     -> ?life:float
     -> ?filename:string
@@ -19,7 +26,7 @@ module type S3 = sig
     ->  key:string
     ->  redirect:string
     -> unit -> upload
-	   
+
   val upload_form : 
        upload
     -> (Ohm.Html.writer -> ('ctx,Ohm.Html.writer) Ohm.Run.t)
@@ -34,6 +41,8 @@ module type S3 = sig
   val download : bucket:string -> key:string -> (string -> 'a option) -> 'a option
 
   val delete : bucket:string -> key:string -> bool
+
+  val put : ?contentType:string -> ?acl:acl -> bucket:string -> key:string -> string -> bool
 
   val publish : bucket:string -> key:string -> file:string -> bool
 
