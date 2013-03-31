@@ -253,6 +253,8 @@ module S3 = functor(Account:ACCOUNT) -> struct
 
   let request ~verb ~bucket ?(key="") ?(qsa="") ?acl ?(storage=`Memory) ?contentType callback =
 
+    let key = BatString.strip ~chars:"/" key in
+
     let verb_name = match verb with 
       | `GET -> "GET" 
       | `PUT _ | `PUTF _ -> "PUT" 
@@ -278,7 +280,6 @@ module S3 = functor(Account:ACCOUNT) -> struct
     
     let sign = sign (stringToSign) in
 
-    let key = BatString.strip ~chars:"/" key in
     let url = "http://"^bucket^".s3.amazonaws.com/"^key^qsa in
 
     let call = match verb with 
@@ -383,7 +384,7 @@ module S3 = functor(Account:ACCOUNT) -> struct
 	~verb:(`PUT data) 
 	~bucket
 	~key
-	begin fun call -> true end
+	begin fun call -> trueend
     with Http_client.Http_protocol e ->
       Util.log "Amazon.put: %s" (Printexc.to_string e) ; false
 
