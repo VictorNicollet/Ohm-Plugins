@@ -384,7 +384,7 @@ module S3 = functor(Account:ACCOUNT) -> struct
 	~verb:(`PUT data) 
 	~bucket
 	~key
-	begin fun call -> trueend
+	begin fun call -> true end
     with Http_client.Http_protocol e ->
       Util.log "Amazon.put: %s" (Printexc.to_string e) ; false
 
