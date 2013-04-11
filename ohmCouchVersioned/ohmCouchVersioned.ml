@@ -161,6 +161,7 @@ module Make = functor (Versioned:VERSIONED) -> struct
   let version_snapshot v = 
     let  oid      = version_object v in
     let! versions = ohm $ get_versions_before oid (version_time v) in
+    let  versions = List.filter (fun v' -> version_id v <> version_id v') versions in
     let! _, obj   = ohm_req_or (return None) (get oid) in 
     let! before   = ohm $ apply_versions versions oid (obj # initial) in 
     let! after    = ohm $ apply_versions [v]      oid  before in 
@@ -216,29 +217,42 @@ module Make = functor (Versioned:VERSIONED) -> struct
 
     let update oid = 
 
-      let! obj_opt = ohm $ ObjectTable.get oid in
+      (* Determine what the "initial" state of the object should be. 
+	 This state will not necessarily be used to compute an upgrade
+	 (because there's a possibility for a quick one-step diff) but
+	 still has to be saved back to the database. *)
 
-      let initial_opt, fetch = match obj_opt, latest with 
-	| None,     _      -> default, None
-	| Some obj, None   -> Some (obj # initial), None
-	| Some obj, Some l -> if (snd l) # time > obj # time 
-	  then Some (obj # current), Some l 
-	  else Some (obj # initial), None
+      let! obj_opt = ohm $ ObjectTable.get oid in
+      let initial_opt = match obj_opt with 
+	| None -> default
+	| Some obj -> Some (obj # initial) 
       in
 	  
-      Run.with_context ctx begin 
-	
-	let! versions = ohm begin
-	  match fetch with 
-	    | None   -> get_versions oid 
-	    | Some v -> return [v]
-	end in
-	
+      Run.with_context ctx begin 		
+
+	(* No initial state : this must be an "update" of a non-existent
+	   object. Just do nothing. *)
+
 	match initial_opt with 
 	  | None -> return (None, `keep) 
 	  | Some initial -> 
+
+	    (* Determine what diffs should be applied, and at what element they
+	       should start ; apply them. The default situation is to apply all
+	       diffs to the initial state, but a possible optimization happens 
+	       if the latest version is appended to the event history, in which 
+	       case it is enough to apply that version to the current state. *) 
+
+ 	    let! startAt, versions = ohm begin
+	      match latest, obj_opt with 
+	      | Some v, Some obj when (snd v) # time > obj # time -> return (obj # current, [v])
+	      | _ -> let! vs = ohm (get_versions oid) in return (initial, vs) 
+	    end in	
 	    
-	    let! current        = ohm $ apply_versions versions oid initial in
+	    let! current        = ohm $ apply_versions versions oid startAt in
+
+	    (* Finish setting up the object and save it. *)
+
 	    let! reflected      = ohm $ Versioned.reflect oid current in
 	    
 	    let time = List.fold_left (fun t (_,v) -> max (v # time) t) 0.0 versions in 
