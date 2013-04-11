@@ -284,12 +284,15 @@ module Make = functor (Versioned:VERSIONED) -> struct
       method diffs = diffs
     end in
     
-    let! () = ohm begin 
-      let! () = ohm $ Run.edit_context Versioned.couchDB (VersionTable.set vid version) in
-      Signals.version_create_call (vid,version)
-    end in
+    let! () = ohm (Run.edit_context Versioned.couchDB (VersionTable.set vid version)) in
 
-    refresh ~latest:(vid,version) id default
+    let! result = ohm_req_or (return None) (refresh ~latest:(vid,version) id default) in
+
+    (* The refresh might create the object, so wait until after the refresh to call
+       any relevant signals. *)
+    let! () = ohm (Signals.version_create_call (vid,version)) in
+
+    return (Some result) 
 
   let update ~id ~diffs ~info () = 
     do_update ~id ~default:None ~diffs ~info ()
