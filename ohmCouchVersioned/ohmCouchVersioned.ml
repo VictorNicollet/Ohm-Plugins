@@ -363,7 +363,7 @@ module Make = functor (Versioned:VERSIONED) -> struct
 	~startkey:(id,0.0) ~endkey:(id,max_float) ()
       in
       let remove_version vid = VersionTable.delete vid in 
-      let! _ = ohm $ Run.list_iter (#id |- VersionId.of_id |- remove_version) versions in 
+      let! _ = ohm $ Run.list_iter (#id %> VersionId.of_id %> remove_version) versions in 
       
       (* Remove the object itself *)
       ObjectTable.delete oid 

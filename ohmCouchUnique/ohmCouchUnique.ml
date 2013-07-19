@@ -59,7 +59,7 @@ module Make = functor (DB:CouchDB.DATABASE) -> struct
 
   let reverse id = 
     let! list = ohm $ Reverse.by_key id in
-    return $ List.map (#id |- Id.str) list
+    return $ List.map (#id %> Id.str) list
 
   let lock value id = 
     let update value = 

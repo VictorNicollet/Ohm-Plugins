@@ -12,7 +12,7 @@ let here = ""
 type ('ctx,'seed,'result) template = {
   template : ('ctx,Json_type.t) Run.t ;
   init     : 'seed -> ('ctx,Json_type.t) Run.t ;
-  parse    : Json_type.t -> field -> ('ctx,('result,(field * string) list) BatStd.result) Run.t ;  
+  parse    : Json_type.t -> field -> ('ctx,('result,(field * string) list) result) Run.t ;  
 }
 
 let seed_map f t =
@@ -482,7 +482,7 @@ let from_post post =
   with _ -> empty
 
 type ('ctx,'result) form = {
-  result : ('ctx,('result, (field * string) list) BatStd.result) Run.t ;
+  result : ('ctx,('result, (field * string) list) result) Run.t ;
   errors : (field * string) list ;
   config : ('ctx,Json.t) Run.t ;
   data   : ('ctx,Json.t) Run.t 

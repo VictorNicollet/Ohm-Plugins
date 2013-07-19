@@ -18,7 +18,7 @@ type page = <
   json  : renaming -> (string * Json.t) list ;
 >
 type item = [ `Page of page | `File of string ] 
-type site = (string,item) BatPMap.t
+type site = (string,item) BatMap.t
 
 type ('server,'site) rec_pageinfo = <
   body  : Ohm.Html.writer ;
@@ -164,31 +164,31 @@ let info_builder key page title public url exported req =
 let export ?(rename=canonical) ?(render=default_render) ?(public="/") ~server ~title site = 
 
   let files, endpoints, pages, definitions = 
-    BatPMap.foldi begin fun key item (files, endpoints, pages, definitions) -> 
+    BatMap.foldi begin fun key item (files, endpoints, pages, definitions) -> 
       match item with 
-	| `File path -> BatPMap.add key path files, endpoints, pages, definitions
+	| `File path -> BatMap.add key path files, endpoints, pages, definitions
 	| `Page page ->
 	  try 
 	    let endpoint, define = Action.declare server (rename key) Action.Args.none in
 	    let info = info_builder key page title public in
 	    files, 
-	    BatPMap.add key endpoint endpoints, 
-	    BatPMap.add key info pages,
+	    BatMap.add key endpoint endpoints, 
+	    BatMap.add key info pages,
 	    (define,page,key,info) :: definitions
 	  with Private -> 
 	    files, endpoints, pages, definitions 
-    end site (BatPMap.empty, BatPMap.empty, BatPMap.empty, [])
+    end site (BatMap.empty, BatMap.empty, BatMap.empty, [])
   in
 
   let url server key = 
-    try Some (Action.url (BatPMap.find key endpoints) server ()) 
+    try Some (Action.url (BatMap.find key endpoints) server ()) 
     with Not_found -> 
-      try Some (public ^ BatPMap.find key files)
+      try Some (public ^ BatMap.find key files)
       with Not_found -> None
   in
 
   let get_page exported req key = 
-    try Some (BatPMap.find key pages url exported req)
+    try Some (BatMap.find key pages url exported req)
     with Not_found -> None
   in
 

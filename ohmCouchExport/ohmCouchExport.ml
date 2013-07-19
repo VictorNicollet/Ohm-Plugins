@@ -133,7 +133,7 @@ struct
       | None -> None	
 
   let progress id = 
-    Run.map (BatOption.bind compute_progress) (Tbl.get id)
+    Run.map (flip BatOption.bind compute_progress) (Tbl.get id)
 
   let delete id = Tbl.delete id 
 
@@ -144,7 +144,7 @@ struct
     if data # finished then Some (data # data) else None
 
   let download id = 
-    Run.map (BatOption.bind if_finished) (Tbl.get id) 
+    Run.map (flip BatOption.bind if_finished) (Tbl.get id) 
 
   let get_state = function 
     | None -> `Missing 
@@ -165,7 +165,7 @@ struct
 
   let recent age limit = 
     let! time = ohmctx (#time) in
-    Run.map (List.map (#id |- MyId.of_id)) 
+    Run.map (List.map (#id %> MyId.of_id)) 
       (LastTouchedView.query ~startkey:(time -. age) ~descending:true ~limit ())
 
   let sweep ~count ~age = 

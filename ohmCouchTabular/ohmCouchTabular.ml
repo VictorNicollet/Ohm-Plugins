@@ -131,8 +131,8 @@ module Make = functor(T:TABULAR) -> struct
 
   (* Data structure transforms *)
   let canonical_sources columns source filter =
-    let cell_sources   = List.map (T.evaluator_of_column |- T.sources_of_evaluator) columns in
-    let filter_sources = BatOption.(default [] $ map T.sources_of_evaluator filter) in
+    let cell_sources   = List.map (T.evaluator_of_column %> T.sources_of_evaluator) columns in
+    let filter_sources = BatOption.default [] $ BatOption.map T.sources_of_evaluator filter in
     BatList.sort_unique compare $ List.concat (filter_sources :: [source] :: cell_sources)
 
   let canonical_columns columns = 
@@ -490,7 +490,7 @@ module Make = functor(T:TABULAR) -> struct
   let update_all key = 
 
     let! lists = ohm $ decay (KeyView.by_key (Key.to_id key)) in
-    let  lists = List.map (#value |- ListId.of_id) lists in 
+    let  lists = List.map (#value %> ListId.of_id) lists in 
 
     let schedule_list lid =
       decay $ ListTable.transact lid begin function

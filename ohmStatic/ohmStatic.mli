@@ -45,7 +45,7 @@ type item = [ `Page of page | `File of string ]
 (** The type of a static site - it maps the key (which is the relative path of an 
     item within the /static directory) to its contents. 
 *)
-type site = (string,item) BatPMap.t
+type site = (string,item) BatMap.t
 
 (** A module for working on exported sites. *)
 module Exported : sig

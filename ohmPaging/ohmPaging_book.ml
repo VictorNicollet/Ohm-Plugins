@@ -25,7 +25,7 @@ type ('key,'data) prev_next =  <
   next : ('key,'data) page option ;
 >
 
-type ('key,'data) t = ('key,'data) node list * ('key, ('key,'data) node) BatPMap.t
+type ('key,'data) t = ('key,'data) node list * ('key, ('key,'data) node) BatMap.t
 
 let no_url _ = None
 
@@ -82,20 +82,20 @@ let make list =
   ) in
 
   Array.to_list nodes,
-  Array.fold_left (fun map item -> BatPMap.add (item # page # key) item map) BatPMap.empty nodes 
+  Array.fold_left (fun map item -> BatMap.add (item # page # key) item map) BatMap.empty nodes 
 
 let full_list ?(url=no_url) (t,_) = 
-  List.map (#page |- with_url url) t
+  List.map (#page %> with_url url) t
 
 let list ?(url=no_url) key (t,m) =
-  if BatPMap.mem key m then 
-    Some (List.map (#page |- selected url key) t)
+  if BatMap.mem key m then 
+    Some (List.map (#page %> selected url key) t)
   else
     None
 
 let prev_next ?(url=no_url) key (_,m) =
   try 
-    let node = BatPMap.find key m in 
+    let node = BatMap.find key m in 
     Some (object
       method prev = BatOption.map (with_url url) (node # prev)
       method next = BatOption.map (with_url url) (node # next) 

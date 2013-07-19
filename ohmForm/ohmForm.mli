@@ -65,7 +65,7 @@ val string :
  ?label:(selector * ('ctx,string) Ohm.Run.t) ->
  ?error:selector ->
   ('seed -> ('ctx,string) Ohm.Run.t) ->
-  (field -> string -> ('ctx,('result,field * string) BatStd.result) Ohm.Run.t) ->
+  (field -> string -> ('ctx,('result,field * string) BatPervasives.result) Ohm.Run.t) ->
   ('ctx,'seed,'result) template
 
 (** A single JSON field.
@@ -91,7 +91,7 @@ val json :
  ?label:(selector * ('ctx,string) Ohm.Run.t) ->
  ?error:selector ->
   ('seed -> ('ctx,Ohm.Json.t) Ohm.Run.t) ->
-  (field -> Ohm.Json.t -> ('ctx,('result,field * string) BatStd.result) Ohm.Run.t) ->
+  (field -> Ohm.Json.t -> ('ctx,('result,field * string) BatPervasives.result) Ohm.Run.t) ->
   ('ctx,'seed,'result) template
 
 (** A JSON selector/autocomplete field.
@@ -128,7 +128,7 @@ val select :
 	 |`Dynamic of string
 	 |`Both of ('data * string * ('ctx,Ohm.Html.writer) Ohm.Run.t option) list * string] ->
   ('seed -> ('ctx,'data option) Ohm.Run.t) ->
-  (field -> 'data option  -> ('ctx,('result,field * string) BatStd.result) Ohm.Run.t) ->
+  (field -> 'data option  -> ('ctx,('result,field * string) BatPervasives.result) Ohm.Run.t) ->
   ('ctx,'seed,'result) template
 
 
@@ -163,7 +163,7 @@ val choice :
   source:('data * ('ctx,Ohm.Html.writer) Ohm.Run.t) list ->
   multiple:bool ->
   ('seed -> ('ctx,'data list) Ohm.Run.t) ->
-  (field -> 'data list  -> ('ctx,('result,field * string) BatStd.result) Ohm.Run.t) ->
+  (field -> 'data list  -> ('ctx,('result,field * string) BatPervasives.result) Ohm.Run.t) ->
   ('ctx,'seed,'result) template
 
 
@@ -259,7 +259,7 @@ val end_object :
 
 (** Convenience result parsing function. [keep field value] always 
     evaluates to [return (Ok value)]. *)
-val keep : field -> 'data -> ('ctx,('data,field * string) BatStd.result) Ohm.Run.t
+val keep : field -> 'data -> ('ctx,('data,field * string) BatPervasives.result) Ohm.Run.t
 
 (** Convenience result parsing function. [keep error field value] either
     evaluates to [return (Ok value)] if value is a non-empty string or to
@@ -268,15 +268,15 @@ val required :
      ('ctx,string) Ohm.Run.t
   -> field
   -> string
-  -> ('ctx,(string,field * string) BatStd.result) Ohm.Run.t
+  -> ('ctx,(string,field * string) BatPervasives.result) Ohm.Run.t
 
 (** Convenience result for adding the field to the returned value. This helps
     when post-processing is required (such as when checking two fields together)
     and the field needs to be available to add the error. 
 *)
 val postpone : 
-     (field -> 'data -> ('ctx,('data,field * string) BatStd.result) Ohm.Run.t)
-  -> (field -> 'data -> ('ctx,('data * field,field * string) BatStd.result) Ohm.Run.t)
+     (field -> 'data -> ('ctx,('data,field * string) BatPervasives.result) Ohm.Run.t)
+  -> (field -> 'data -> ('ctx,('data * field,field * string) BatPervasives.result) Ohm.Run.t)
 
 (** Provides a source of data for initializing a form during construction. *)
 type 'seed source 
@@ -328,10 +328,10 @@ val has_errors : ('ctx,'result) form -> bool
 
 (** Extract the form data as a result type. This uses the parsing functions provided in the 
     template. Usually, the result type is either a variant that can represent a correct value
-    OR a list of errors, or a function that returns such a variant. Use of BatStd.result is
+    OR a list of errors, or a function that returns such a variant. Use of BatPervasives.result is
     suggested.
 *)
-val result : ('ctx,'result) form -> ('ctx,('result, (field * string) list) BatStd.result) Ohm.Run.t
+val result : ('ctx,'result) form -> ('ctx,('result, (field * string) list) BatPervasives.result) Ohm.Run.t
 
 (** Convenience utility functions. *)
 module Convenience : sig
@@ -349,7 +349,7 @@ module Convenience : sig
     -> ('ctx,string) Ohm.Run.t
     -> field
     -> string
-    -> ('ctx,(string,field * string) BatStd.result) Ohm.Run.t
+    -> ('ctx,(string,field * string) BatPervasives.result) Ohm.Run.t
     
 end
 
@@ -366,27 +366,27 @@ module Skin : sig
   val text : 
        label:('c,string) Ohm.Run.t
     -> ('s -> ('c,string) Ohm.Run.t)
-    -> (field -> string -> ('c,('r,field * string) BatStd.result) Ohm.Run.t)
+    -> (field -> string -> ('c,('r,field * string) BatPervasives.result) Ohm.Run.t)
     -> ('c,'s,'r) template
 
   (** A [type="text"] input field with [class="-wide"] *)
   val widetext : 
        label:('c,string) Ohm.Run.t
     -> ('s -> ('c,string) Ohm.Run.t)
-    -> (field -> string -> ('c,('r,field * string) BatStd.result) Ohm.Run.t)
+    -> (field -> string -> ('c,('r,field * string) BatPervasives.result) Ohm.Run.t)
     -> ('c,'s,'r) template
 
   (** A [textarea] field. *)
   val textarea : 
        label:('c,string) Ohm.Run.t
     -> ('s -> ('c,string) Ohm.Run.t)
-    -> (field -> string -> ('c,('r,field * string) BatStd.result) Ohm.Run.t)
+    -> (field -> string -> ('c,('r,field * string) BatPervasives.result) Ohm.Run.t)
     -> ('c,'s,'r) template
 
   (** A [type="password"] input field. *)
   val password : 
        label:('c,string) Ohm.Run.t
-    -> (field -> string -> ('c,('r,field * string) BatStd.result) Ohm.Run.t)
+    -> (field -> string -> ('c,('r,field * string) BatPervasives.result) Ohm.Run.t)
     -> ('c,'s,'r) template
 
   (** A list of radio-buttons. *)
@@ -396,7 +396,7 @@ module Skin : sig
     format:'data Ohm.Fmt.fmt ->
     source:('data * ('ctx,Ohm.Html.writer) Ohm.Run.t) list ->
     ('seed -> ('ctx,'data option) Ohm.Run.t) ->
-    (field -> 'data option  -> ('ctx,('result,field * string) BatStd.result) Ohm.Run.t) ->
+    (field -> 'data option  -> ('ctx,('result,field * string) BatPervasives.result) Ohm.Run.t) ->
     ('ctx,'seed,'result) template    
     
   (** An optional field containing a sub-form *)

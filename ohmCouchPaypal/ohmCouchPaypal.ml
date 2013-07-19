@@ -371,7 +371,7 @@ module Make = functor(C:CONFIG) -> struct
   let doExpressCheckoutPayment id ~config = 
     let! payment = ohm_req_or (return None) $ get id in
 
-    let payer_opt = payment.Payment.payer |> BatOption.bind (fun payer -> payer # id) in
+    let payer_opt = payment.Payment.payer |> flip BatOption.bind (fun payer -> payer # id) in
     
     match payer_opt with None -> return None | Some payerid -> 
       

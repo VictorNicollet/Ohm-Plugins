@@ -81,7 +81,7 @@ module Make = functor(R:REGISTRY_CONFIG) -> struct
     let key = R.Id.to_id id in
     let id = merge id prop in 
     Tbl.transact id begin fun oline -> 
-      let  oelt = BatOption.bind (#value |- prop.fmt.Fmt.of_json) oline in 
+      let  oelt = BatOption.bind oline (#value %> prop.fmt.Fmt.of_json) in 
       let!  elt = ohm (f oelt) in
       let  line = object
 	method value = prop.fmt.Fmt.to_json elt 
