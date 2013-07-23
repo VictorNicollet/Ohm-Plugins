@@ -51,7 +51,7 @@ let init_full ?(cookie="PERSONA") ?(urlPrefix="persona/") ~server ~onLogin ~onLo
   val login = Action.register server (urlPrefix ^ "login") Action.Args.none begin fun req res ->
 
     let! assertion = req_or (return res) 
-      (Action.Convenience.get_json req |> BatOption.bind Fmt.String.of_json_safe) in
+      (Action.Convenience.get_json req |> flip BatOption.bind Fmt.String.of_json_safe) in
 
     let () = Util.log "Assertion: %s" assertion in
 
